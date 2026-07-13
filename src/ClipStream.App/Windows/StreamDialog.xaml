@@ -1,0 +1,106 @@
+<Window x:Class="ClipStream.App.Windows.StreamDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStartupLocation="Manual"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        ShowInTaskbar="False"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+    <Border Style="{StaticResource PanelBorderStyle}" Margin="16">
+        <Grid MinWidth="360">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0"
+                       Text="Stream name"
+                       Style="{StaticResource PanelHeaderStyle}"
+                       Margin="0" />
+
+            <TextBox x:Name="NameBox"
+                     Grid.Row="1"
+                     Style="{StaticResource ModernTextBoxStyle}" />
+
+            <TextBlock Grid.Row="2"
+                       Text="Icon"
+                       Style="{StaticResource PanelHeaderStyle}"
+                       Margin="0,12,0,0" />
+
+            <ListBox x:Name="IconList"
+                     Grid.Row="3"
+                     BorderThickness="0"
+                     Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="2" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="border"
+                                            Width="40"
+                                            Height="40"
+                                            Background="Transparent"
+                                            BorderBrush="Transparent"
+                                            BorderThickness="2"
+                                            CornerRadius="{StaticResource CornerRadiusSmall}">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ListItemHoverBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ListItemSelectedBrush}" />
+                                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Glyph}"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="16"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Grid.Row="4"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,16,0,0">
+                <Button Content="Cancel"
+                        IsCancel="True"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,0,8,0" />
+                <Button x:Name="ConfirmButton"
+                        Content="Create"
+                        IsDefault="True"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Click="ConfirmButton_OnClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

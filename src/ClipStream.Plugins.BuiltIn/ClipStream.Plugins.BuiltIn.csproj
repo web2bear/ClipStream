@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClipStream.Core\ClipStream.Core.csproj" />
+    <ProjectReference Include="..\ClipStream.Plugins.Abstractions\ClipStream.Plugins.Abstractions.csproj" />
+    <ProjectReference Include="..\ClipStream.Infrastructure\ClipStream.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
