@@ -17,14 +17,14 @@ public sealed class MarkdownFragmentWriter
         ClipboardFragment fragment,
         ClipStreamEntity? stream,
         IReadOnlyList<string> attachmentPaths,
-        IReadOnlyList<string> rawFormatPaths,
-        ObsidianExportOptions options,
+        MarkdownExportOptions options,
         CancellationToken cancellationToken = default)
     {
         var tagPrefix = options.TagPrefix ?? "clipstream";
         var frontmatter = new Dictionary<string, object?>
         {
             ["id"] = fragment.Id.ToString(),
+            ["title"] = fragment.Title,
             ["created"] = fragment.CapturedAt.ToString("O"),
             ["tags"] = new List<string>
             {
@@ -48,34 +48,9 @@ public sealed class MarkdownFragmentWriter
             frontmatter["attachments"] = attachmentPaths;
         }
 
-        if (rawFormatPaths.Count > 0)
-        {
-            var clipstreamMeta = (Dictionary<string, object?>)frontmatter["clipstream"]!;
-            clipstreamMeta["rawFormats"] = rawFormatPaths;
-        }
-
         var yaml = _serializer.Serialize(frontmatter);
         var body = BuildBody(fragment, attachmentPaths);
         var content = $"---{Environment.NewLine}{yaml}---{Environment.NewLine}{Environment.NewLine}{body}";
-        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-        await File.WriteAllTextAsync(filePath, content, Encoding.UTF8, cancellationToken);
-    }
-
-    public async Task WriteStreamIndexAsync(
-        string filePath,
-        ClipStreamEntity stream,
-        CancellationToken cancellationToken = default)
-    {
-        var frontmatter = new Dictionary<string, object?>
-        {
-            ["type"] = "clipstream-stream",
-            ["name"] = stream.Name,
-            ["icon"] = stream.Icon,
-            ["sortOrder"] = stream.SortOrder
-        };
-
-        var yaml = _serializer.Serialize(frontmatter);
-        var content = $"---{Environment.NewLine}{yaml}---{Environment.NewLine}{Environment.NewLine}# {stream.Name}{Environment.NewLine}{Environment.NewLine}Экспортировано из ClipStream.{Environment.NewLine}";
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         await File.WriteAllTextAsync(filePath, content, Encoding.UTF8, cancellationToken);
     }
@@ -84,12 +59,12 @@ public sealed class MarkdownFragmentWriter
     {
         if (fragment.Kind == FragmentKind.Image && attachmentPaths.Count > 0)
         {
-            return string.Join(Environment.NewLine, attachmentPaths.Select(p => $"![[{p}]]"));
+            return string.Join(Environment.NewLine, attachmentPaths.Select(path => $"![[{path}]]"));
         }
 
         if (fragment.Kind == FragmentKind.Files && attachmentPaths.Count > 0)
         {
-            var lines = attachmentPaths.Select(p => $"- [[{p}]]").ToList();
+            var lines = attachmentPaths.Select(path => $"- [[{path}]]").ToList();
             if (!string.IsNullOrWhiteSpace(fragment.PreviewText))
             {
                 lines.Insert(0, fragment.PreviewText);

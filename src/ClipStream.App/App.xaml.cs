@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Globalization;
+using System.Windows;
 using ClipStream.App.Services;
 using ClipStream.App.ViewModels;
 using ClipStream.App.Windows;
@@ -16,11 +17,23 @@ namespace ClipStream.App;
 public partial class App : System.Windows.Application
 {
     private IHost? _host;
+    private System.Windows.Forms.NotifyIcon? _trayIcon;
 
     public IServiceProvider Services => _host!.Services;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // Use system culture for date/number formatting throughout the app
+        var culture = CultureInfo.GetCultureInfo(CultureInfo.InstalledUICulture.Name);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+
+        // WPF uses Language property for binding formatting, not CurrentCulture
+        FrameworkElement.LanguageProperty.OverrideMetadata(
+            typeof(FrameworkElement),
+            new FrameworkPropertyMetadata(
+                System.Windows.Markup.XmlLanguage.GetLanguage(culture.IetfLanguageTag)));
+
         base.OnStartup(e);
 
         _host = Host.CreateDefaultBuilder()
@@ -36,6 +49,11 @@ public partial class App : System.Windows.Application
                 services.AddClipStreamClipboard();
                 services.AddClipStreamExport();
                 services.AddBuiltInPlugins();
+                services.AddSingleton<IPluginDialogs, WpfPluginDialogs>();
+                services.AddSingleton<MutableStatusReporter>();
+                services.AddSingleton<IStatusReporter>(sp => sp.GetRequiredService<MutableStatusReporter>());
+                services.AddSingleton<IPluginHost, PluginHost>();
+                services.AddSingleton<ActionContextFactory>();
                 services.AddSingleton<IThemeService, ThemeService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -50,6 +68,9 @@ public partial class App : System.Windows.Application
         await pluginLoader.ReloadAsync();
         ClipStream.Plugins.BuiltIn.ServiceCollectionExtensions.RegisterBuiltInPluginsWithLoader(Services);
 
+        var pluginHost = Services.GetRequiredService<IPluginHost>();
+        await pluginLoader.ActivateActionPluginsAsync(pluginHost);
+
         var hostWindow = Services.GetRequiredService<ClipboardHostWindow>();
         var listenerReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         hostWindow.SourceInitialized += (_, _) => listenerReady.TrySetResult();
@@ -63,14 +84,24 @@ public partial class App : System.Windows.Application
         await viewModel.InitializeAsync();
         mainWindow.DataContext = viewModel;
         mainWindow.Show();
+        MainWindow = mainWindow;
 
         SetupTrayIcon(mainWindow);
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
+        if (_trayIcon is not null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _trayIcon = null;
+        }
+
         if (_host is not null)
         {
+            var pluginLoader = Services.GetRequiredService<IPluginLoader>();
+            await pluginLoader.DeactivateActionPluginsAsync();
             await _host.StopAsync();
             _host.Dispose();
         }
@@ -78,36 +109,38 @@ public partial class App : System.Windows.Application
         base.OnExit(e);
     }
 
-    private static void SetupTrayIcon(System.Windows.Window mainWindow)
+    private void SetupTrayIcon(System.Windows.Window mainWindow)
     {
-        var tray = new System.Windows.Forms.NotifyIcon
+        _trayIcon = new System.Windows.Forms.NotifyIcon
         {
             Text = "ClipStream",
             Icon = System.Drawing.SystemIcons.Application,
             Visible = true
         };
 
-        tray.DoubleClick += (_, _) =>
-        {
-            mainWindow.Show();
-            mainWindow.WindowState = System.Windows.WindowState.Normal;
-            mainWindow.Activate();
-        };
+        _trayIcon.DoubleClick += (_, _) => RestoreMainWindow(mainWindow);
 
         var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Show", null, (_, _) =>
-        {
-            mainWindow.Show();
-            mainWindow.WindowState = System.Windows.WindowState.Normal;
-            mainWindow.Activate();
-        });
+        menu.Items.Add("Show", null, (_, _) => RestoreMainWindow(mainWindow));
         menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());
-        tray.ContextMenuStrip = menu;
+        _trayIcon.ContextMenuStrip = menu;
 
-        mainWindow.Closing += (_, args) =>
+        mainWindow.StateChanged += (_, _) =>
         {
-            args.Cancel = true;
+            if (mainWindow.WindowState != System.Windows.WindowState.Minimized)
+            {
+                return;
+            }
+
             mainWindow.Hide();
+            mainWindow.WindowState = System.Windows.WindowState.Normal;
         };
+    }
+
+    private static void RestoreMainWindow(System.Windows.Window mainWindow)
+    {
+        mainWindow.Show();
+        mainWindow.WindowState = System.Windows.WindowState.Normal;
+        mainWindow.Activate();
     }
 }

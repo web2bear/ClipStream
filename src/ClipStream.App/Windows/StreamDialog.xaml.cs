@@ -20,7 +20,6 @@ public partial class StreamDialog : Window
 
         Loaded += (_, _) =>
         {
-            CenterOnOwner();
             NameBox.Focus();
             NameBox.SelectAll();
         };
@@ -40,18 +39,6 @@ public partial class StreamDialog : Window
         };
 
         return dialog.ShowDialog() == true ? dialog.Result : null;
-    }
-
-    private void CenterOnOwner()
-    {
-        if (Owner is not Window owner)
-        {
-            return;
-        }
-
-        UpdateLayout();
-        Left = owner.Left + (owner.ActualWidth - ActualWidth) / 2;
-        Top = owner.Top + (owner.ActualHeight - ActualHeight) / 2;
     }
 
     private void ConfirmButton_OnClick(object sender, RoutedEventArgs e)

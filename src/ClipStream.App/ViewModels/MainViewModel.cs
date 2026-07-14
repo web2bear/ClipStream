@@ -2,13 +2,11 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using ClipStream.App.Services;
 using ClipStream.App.Windows;
-using ClipStream.Clipboard.Paste;
-using ClipStream.Core.Export;
 using ClipStream.Core.Models;
 using ClipStream.Core.Repositories;
+using ClipStream.Plugins.Abstractions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 
 namespace ClipStream.App.ViewModels;
 
@@ -16,15 +14,22 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly IStreamRepository _streamRepository;
     private readonly IFragmentRepository _fragmentRepository;
-    private readonly IClipboardWriter _clipboardWriter;
-    private readonly IObsidianVaultExporter _exporter;
+    private readonly IPluginLoader _pluginLoader;
+    private readonly ActionContextFactory _actionContextFactory;
     private readonly IThemeService _themeService;
+    private readonly MutableStatusReporter _statusReporter;
 
     [ObservableProperty]
     private ObservableCollection<ClipStreamEntity> _streams = [];
 
     [ObservableProperty]
     private ObservableCollection<ClipboardFragment> _fragments = [];
+
+    [ObservableProperty]
+    private ObservableCollection<IContextMenuItemViewModel> _fragmentContextMenuItems = [];
+
+    [ObservableProperty]
+    private ObservableCollection<IContextMenuItemViewModel> _streamContextMenuItems = [];
 
     [ObservableProperty]
     private ClipStreamEntity? _selectedStream;
@@ -41,18 +46,23 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         IStreamRepository streamRepository,
         IFragmentRepository fragmentRepository,
-        IClipboardWriter clipboardWriter,
-        IObsidianVaultExporter exporter,
-        IThemeService themeService)
+        IPluginLoader pluginLoader,
+        ActionContextFactory actionContextFactory,
+        IThemeService themeService,
+        MutableStatusReporter statusReporter)
     {
         _streamRepository = streamRepository;
         _fragmentRepository = fragmentRepository;
-        _clipboardWriter = clipboardWriter;
-        _exporter = exporter;
+        _pluginLoader = pluginLoader;
+        _actionContextFactory = actionContextFactory;
         _themeService = themeService;
+        _statusReporter = statusReporter;
+        _statusReporter.SetHandler(message => StatusText = message);
         _isDarkTheme = themeService.IsDarkTheme;
         _themeService.ThemeChanged += (_, _) => IsDarkTheme = _themeService.IsDarkTheme;
         _fragmentRepository.FragmentAdded += OnFragmentAdded;
+        _editStreamMenuItem = new EditStreamContextMenuItemViewModel(this);
+        BuildActionMenuItems();
     }
 
     public async Task InitializeAsync()
@@ -66,8 +76,8 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedStreamChanged(ClipStreamEntity? value)
     {
-        ExportStreamCommand.NotifyCanExecuteChanged();
         EditStreamCommand.NotifyCanExecuteChanged();
+        _ = UpdateStreamActionMenuItemsAsync(value);
         _ = LoadFragmentsAsync();
     }
 
@@ -209,107 +219,95 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedFragmentChanged(ClipboardFragment? value)
     {
-        PasteFragmentCommand.NotifyCanExecuteChanged();
-        ExportFragmentCommand.NotifyCanExecuteChanged();
+        _ = UpdateFragmentActionMenuItemsAsync(value);
     }
-
-    private bool CanPasteFragment(ClipboardFragment? fragment) => (fragment ?? SelectedFragment) is not null;
-
-    [RelayCommand(CanExecute = nameof(CanPasteFragment))]
-    private async Task PasteFragmentAsync(ClipboardFragment? fragment)
-    {
-        fragment ??= SelectedFragment;
-        if (fragment is null)
-        {
-            StatusText = "Select a fragment to paste";
-            return;
-        }
-
-        try
-        {
-            var fullFragment = await _fragmentRepository.GetByIdAsync(fragment.Id) ?? fragment;
-            await _clipboardWriter.PasteFragmentToActiveWindowAsync(fullFragment);
-            StatusText = "Pasted to active window";
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Paste failed: {ex.Message}";
-        }
-    }
-
-    private bool CanExportFragment(ClipboardFragment? fragment) => (fragment ?? SelectedFragment) is not null;
-
-    [RelayCommand(CanExecute = nameof(CanExportFragment))]
-    private async Task ExportFragmentAsync(ClipboardFragment? fragment)
-    {
-        fragment ??= SelectedFragment;
-        if (fragment is null)
-        {
-            return;
-        }
-
-        var path = PickExportFolder();
-        if (path is null)
-        {
-            return;
-        }
-
-        var options = new ObsidianExportOptions
-        {
-            TargetDirectory = path,
-            Layout = ObsidianLayout.SingleFolder
-        };
-
-        var result = await _exporter.ExportFragmentAsync(fragment.Id, options);
-        StatusText = $"Exported {result.FilesWritten} file(s) to {path}";
-    }
-
-    [RelayCommand(CanExecute = nameof(CanExportStream))]
-    private async Task ExportStreamAsync(ClipStreamEntity? stream)
-    {
-        stream ??= SelectedStream;
-        if (stream is null)
-        {
-            return;
-        }
-
-        var path = PickExportFolder();
-        if (path is null)
-        {
-            return;
-        }
-
-        var options = new ObsidianExportOptions { TargetDirectory = path };
-        var result = await _exporter.ExportStreamAsync(stream.Id, options);
-        StatusText = $"Exported stream \"{stream.Name}\": {result.FilesWritten} files, {result.AttachmentsCopied} attachments";
-    }
-
-    private bool CanExportStream(ClipStreamEntity? stream) => (stream ?? SelectedStream) is not null;
 
     [RelayCommand]
     private void ToggleTheme() => _themeService.ToggleTheme();
 
-    [RelayCommand]
-    private async Task ExportAllAsync()
+    public async Task ExecuteFragmentActionByIdAsync(string pluginId, ClipboardFragment? fragment = null)
     {
-        var path = PickExportFolder();
-        if (path is null)
+        fragment ??= SelectedFragment;
+        var menuItem = _fragmentActionMenuItems.FirstOrDefault(item => item.PluginId == pluginId);
+        if (menuItem is null || fragment is null)
         {
             return;
         }
 
-        var options = new ObsidianExportOptions { TargetDirectory = path };
-        var result = await _exporter.ExportAllAsync(options);
-        StatusText = $"Exported vault: {result.FilesWritten} files";
+        await menuItem.UpdateCanExecuteAsync(fragment);
+        if (menuItem.ExecuteCommand.CanExecute(fragment))
+        {
+            menuItem.ExecuteCommand.Execute(fragment);
+        }
     }
 
-    private static string? PickExportFolder()
+    public async Task RefreshStreamContextMenuAsync(ClipStreamEntity? stream) =>
+        await UpdateStreamActionMenuItemsAsync(stream ?? SelectedStream);
+
+    public async Task RefreshFragmentContextMenuAsync(ClipboardFragment? fragment) =>
+        await UpdateFragmentActionMenuItemsAsync(fragment ?? SelectedFragment);
+
+    private readonly List<FragmentActionMenuItemViewModel> _fragmentActionMenuItems = [];
+    private readonly List<StreamActionMenuItemViewModel> _streamActionMenuItems = [];
+    private readonly EditStreamContextMenuItemViewModel _editStreamMenuItem;
+
+    private void BuildActionMenuItems()
     {
-        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        _fragmentActionMenuItems.Clear();
+        _fragmentActionMenuItems.AddRange(
+            _pluginLoader.FragmentActionPlugins
+                .OrderBy(plugin => plugin.MenuGroup)
+                .ThenBy(plugin => plugin.MenuOrder)
+                .Select(plugin => new FragmentActionMenuItemViewModel(plugin, CreateFragmentContext, _statusReporter)));
+
+        FragmentContextMenuItems = new ObservableCollection<IContextMenuItemViewModel>(_fragmentActionMenuItems);
+
+        _streamActionMenuItems.Clear();
+        _streamActionMenuItems.AddRange(
+            _pluginLoader.StreamActionPlugins
+                .OrderBy(plugin => plugin.MenuGroup)
+                .ThenBy(plugin => plugin.MenuOrder)
+                .Select(plugin => new StreamActionMenuItemViewModel(plugin, CreateStreamContext, _statusReporter)));
+
+        StreamContextMenuItems = new ObservableCollection<IContextMenuItemViewModel>(
+        [
+            _editStreamMenuItem,
+            .._streamActionMenuItems
+        ]);
+    }
+
+    private FragmentActionContext? CreateFragmentContext(ClipboardFragment? fragment)
+    {
+        fragment ??= SelectedFragment;
+        return fragment is null
+            ? null
+            : _actionContextFactory.CreateFragmentContext(fragment, SelectedStream);
+    }
+
+    private StreamActionContext? CreateStreamContext(ClipStreamEntity? stream)
+    {
+        stream ??= SelectedStream;
+        return stream is null
+            ? null
+            : _actionContextFactory.CreateStreamContext(stream);
+    }
+
+    private async Task UpdateFragmentActionMenuItemsAsync(ClipboardFragment? fragment)
+    {
+        foreach (var menuItem in _fragmentActionMenuItems)
         {
-            Description = "Select Obsidian vault folder"
-        };
-        return dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK ? dialog.SelectedPath : null;
+            await menuItem.UpdateCanExecuteAsync(fragment);
+        }
+    }
+
+    private async Task UpdateStreamActionMenuItemsAsync(ClipStreamEntity? stream)
+    {
+        EditStreamCommand.NotifyCanExecuteChanged();
+        _editStreamMenuItem.Refresh();
+        foreach (var menuItem in _streamActionMenuItems)
+        {
+            await menuItem.UpdateCanExecuteAsync(stream);
+        }
     }
 
     private void OnFragmentAdded(object? sender, FragmentAddedEventArgs e)
@@ -322,5 +320,25 @@ public partial class MainViewModel : ObservableObject
                 StatusText = $"New fragment in {SelectedStream.Name}";
             }
         });
+    }
+
+    public async Task SaveFragmentTitleAsync(ClipboardFragment fragment, string newTitle)
+    {
+        if (string.IsNullOrWhiteSpace(newTitle) || newTitle == fragment.Title)
+        {
+            return;
+        }
+
+        await _fragmentRepository.UpdateTitleAsync(fragment.Id, newTitle);
+
+        var index = Fragments.IndexOf(fragment);
+        if (index >= 0)
+        {
+            fragment.Title = newTitle;
+            Fragments.RemoveAt(index);
+            Fragments.Insert(index, fragment);
+        }
+
+        StatusText = $"Заголовок изменён на \"{newTitle}\"";
     }
 }

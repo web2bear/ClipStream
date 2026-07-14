@@ -12,6 +12,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClipStreamPlugin, ImageFormatPlugin>();
         services.AddSingleton<IClipStreamPlugin, FilesFormatPlugin>();
         services.AddSingleton<IClipStreamPlugin, GenericBinaryPlugin>();
+        services.AddSingleton<IClipStreamPlugin, PasteFragmentActionPlugin>();
+        services.AddSingleton<IClipStreamPlugin, ExportFragmentMarkdownActionPlugin>();
+        services.AddSingleton<IClipStreamPlugin, ExportStreamMarkdownActionPlugin>();
         return services;
     }
 

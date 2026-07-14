@@ -2,6 +2,7 @@ using ClipStream.Clipboard.Capture;
 using ClipStream.Clipboard.Guard;
 using ClipStream.Clipboard.Listener;
 using ClipStream.Clipboard.Paste;
+using ClipStream.Core.Paste;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -19,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IForegroundWindowTracker>(sp => sp.GetRequiredService<ForegroundWindowTracker>());
         services.AddHostedService(sp => sp.GetRequiredService<ForegroundWindowTracker>());
         services.AddSingleton<IClipboardWriter, ClipboardWriter>();
+        services.AddSingleton<IFragmentPasteService, FragmentPasteService>();
         return services;
     }
 }

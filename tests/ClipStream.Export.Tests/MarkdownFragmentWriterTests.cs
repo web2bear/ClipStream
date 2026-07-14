@@ -28,9 +28,9 @@ public class MarkdownFragmentWriterTests
                 "sha256:abc123");
 
             var stream = new ClipStreamEntity(Guid.NewGuid(), "work", "briefcase", 1, false);
-            var options = new ObsidianExportOptions { TargetDirectory = tempDir };
+            var options = new MarkdownExportOptions { TargetDirectory = tempDir };
 
-            await writer.WriteAsync(filePath, fragment, stream, [], [], options);
+            await writer.WriteAsync(filePath, fragment, stream, [], options);
 
             var content = await File.ReadAllTextAsync(filePath);
             Assert.StartsWith("---", content);

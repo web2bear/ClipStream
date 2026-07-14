@@ -10,7 +10,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ExportPathBuilder>();
         services.AddSingleton<MarkdownFragmentWriter>();
         services.AddSingleton<AttachmentCopier>();
-        services.AddSingleton<IObsidianVaultExporter, ObsidianVaultExporter>();
+        services.AddSingleton<IMarkdownExporter, MarkdownDirectoryExporter>();
         return services;
     }
 }

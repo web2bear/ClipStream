@@ -29,6 +29,17 @@ public sealed class ClipStreamDatabase
         await using var command = connection.CreateCommand();
         command.CommandText = DatabaseSchema.Sql;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await using var migrationCommand = connection.CreateCommand();
+        migrationCommand.CommandText = "ALTER TABLE fragments ADD COLUMN title TEXT";
+        try
+        {
+            await migrationCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException)
+        {
+            // Column already exists — ignore
+        }
     }
 
     public SqliteConnection OpenConnection() => new(_connectionString);

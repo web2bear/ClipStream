@@ -30,6 +30,8 @@
 
             <RowDefinition Height="*" />
 
+            <RowDefinition Height="Auto" />
+
         </Grid.RowDefinitions>
 
         <Grid.ColumnDefinitions>
@@ -101,14 +103,6 @@
 
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-
-                    <Button Content="Export vault"
-
-                            Style="{StaticResource SecondaryButtonStyle}"
-
-                            Margin="0,0,8,0"
-
-                            Command="{Binding ExportAllCommand}" />
 
                     <Button Style="{StaticResource IconButtonStyle}"
 
@@ -220,21 +214,9 @@
 
                     <ListBox.ContextMenu>
 
-                        <ContextMenu>
-
-                            <MenuItem Header="Edit stream..."
-
-                                      Command="{Binding DataContext.EditStreamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-
-                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-
-                            <MenuItem Header="Export to Obsidian..."
-
-                                      Command="{Binding DataContext.ExportStreamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-
-                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-
-                        </ContextMenu>
+                        <ContextMenu Opened="StreamContextMenu_OnOpened"
+                                     ItemsSource="{Binding PlacementTarget.DataContext.StreamContextMenuItems, RelativeSource={RelativeSource Self}}"
+                                     ItemContainerStyle="{StaticResource ActionContextMenuItemStyle}" />
 
                     </ListBox.ContextMenu>
 
@@ -284,17 +266,7 @@
 
                                 <StackPanel>
 
-                                    <TextBlock Text="{Binding PreviewText}"
-
-                                               TextWrapping="Wrap"
-
-                                               MaxHeight="80"
-
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-
-                                               LineHeight="18" />
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <StackPanel Orientation="Horizontal">
 
                                         <Border Background="{DynamicResource AccentSubtleBrush}"
 
@@ -302,7 +274,9 @@
 
                                                 Padding="6,2"
 
-                                                Margin="0,0,8,0">
+                                                Margin="0,0,8,0"
+
+                                                VerticalAlignment="Center">
 
                                             <TextBlock Text="{Binding Kind}"
 
@@ -312,15 +286,47 @@
 
                                         </Border>
 
-                                        <TextBlock Text="{Binding CapturedAt}"
+                                        <TextBox Text="{Binding Title}"
 
-                                                   FontSize="11"
+                                                 Style="{StaticResource InlineEditTextBoxStyle}"
 
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                 MaxWidth="280"
 
-                                                   VerticalAlignment="Center" />
+                                                 VerticalAlignment="Center"
+
+                                                 HorizontalAlignment="Left"
+
+                                                 KeyDown="TitleTextBox_KeyDown"
+
+                                                 LostFocus="TitleTextBox_LostFocus" />
 
                                     </StackPanel>
+
+                                    <Border Height="1"
+
+                                            Background="{DynamicResource BorderSubtleBrush}"
+
+                                            Margin="0,6,0,6" />
+
+                                    <TextBlock Text="{Binding PreviewText}"
+
+                                               TextWrapping="Wrap"
+
+                                               MaxHeight="80"
+
+                                               Foreground="{DynamicResource TextMutedBrush}"
+
+                                               LineHeight="18" />
+
+                                    <TextBlock Text="{Binding CapturedAt, StringFormat={}{0:g}}"
+
+                                               FontSize="11"
+
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+
+                                               HorizontalAlignment="Right"
+
+                                               Margin="0,6,0,0" />
 
                                 </StackPanel>
 
@@ -332,21 +338,9 @@
 
                     <ListBox.ContextMenu>
 
-                        <ContextMenu>
-
-                            <MenuItem Header="Paste to active window"
-
-                                      Command="{Binding DataContext.PasteFragmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-
-                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-
-                            <MenuItem Header="Export to Obsidian..."
-
-                                      Command="{Binding DataContext.ExportFragmentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-
-                                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-
-                        </ContextMenu>
+                        <ContextMenu Opened="FragmentContextMenu_OnOpened"
+                                     ItemsSource="{Binding PlacementTarget.DataContext.FragmentContextMenuItems, RelativeSource={RelativeSource Self}}"
+                                     ItemContainerStyle="{StaticResource ActionContextMenuItemStyle}" />
 
                     </ListBox.ContextMenu>
 
@@ -354,6 +348,17 @@
 
             </DockPanel>
 
+        </Border>
+
+
+
+        <Border Grid.Row="2" Grid.ColumnSpan="2"
+                Style="{StaticResource PanelBorderStyle}"
+                Padding="10,8"
+                Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusText}"
+                       FontSize="12"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
         </Border>
 
     </Grid>

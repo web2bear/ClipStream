@@ -1,30 +1,20 @@
 namespace ClipStream.Core.Export;
 
-public enum ObsidianLayout
-{
-    StreamsAsFolders,
-    FlatByDate,
-    SingleFolder
-}
-
 public enum FilenameStrategy
 {
     TimestampAndSlug,
     Guid,
-    SlugFromPreview
+    SlugFromPreview,
+    SlugFromTitle
 }
 
-public sealed record ObsidianExportOptions
+public sealed record MarkdownExportOptions
 {
     public required string TargetDirectory { get; init; }
 
-    public ObsidianLayout Layout { get; init; } = ObsidianLayout.StreamsAsFolders;
-
     public bool IncludeAttachments { get; init; } = true;
 
-    public bool IncludeRawFormats { get; init; }
-
-    public FilenameStrategy FilenameStrategy { get; init; } = FilenameStrategy.TimestampAndSlug;
+    public FilenameStrategy FilenameStrategy { get; init; } = FilenameStrategy.SlugFromTitle;
 
     public bool OverwriteExisting { get; init; }
 
@@ -40,27 +30,21 @@ public sealed record ExportResult(
     int FilesWritten,
     int AttachmentsCopied,
     int Skipped,
-    IReadOnlyList<ExportItem> Items,
-    string? ManifestPath);
+    IReadOnlyList<ExportItem> Items);
 
 public sealed record ExportProgress(int Current, int Total, string? CurrentFile);
 
-public interface IObsidianVaultExporter
+public interface IMarkdownExporter
 {
     Task<ExportResult> ExportFragmentAsync(
         Guid fragmentId,
-        ObsidianExportOptions options,
+        MarkdownExportOptions options,
         IProgress<ExportProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     Task<ExportResult> ExportStreamAsync(
         Guid streamId,
-        ObsidianExportOptions options,
-        IProgress<ExportProgress>? progress = null,
-        CancellationToken cancellationToken = default);
-
-    Task<ExportResult> ExportAllAsync(
-        ObsidianExportOptions options,
+        MarkdownExportOptions options,
         IProgress<ExportProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }

@@ -28,6 +28,8 @@ public sealed class PluginLoader : IPluginLoader
     private readonly string _pluginsDirectory;
     private readonly List<IClipboardFormatPlugin> _formatPlugins = [];
     private readonly List<IFragmentEnricherPlugin> _enricherPlugins = [];
+    private readonly List<IFragmentActionPlugin> _fragmentActionPlugins = [];
+    private readonly List<IStreamActionPlugin> _streamActionPlugins = [];
     private readonly List<PluginLoadContext> _contexts = [];
 
     public PluginLoader(ILogger<PluginLoader> logger)
@@ -43,10 +45,16 @@ public sealed class PluginLoader : IPluginLoader
 
     public IReadOnlyList<IFragmentEnricherPlugin> EnricherPlugins => _enricherPlugins;
 
+    public IReadOnlyList<IFragmentActionPlugin> FragmentActionPlugins => _fragmentActionPlugins;
+
+    public IReadOnlyList<IStreamActionPlugin> StreamActionPlugins => _streamActionPlugins;
+
     public Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         _formatPlugins.Clear();
         _enricherPlugins.Clear();
+        _fragmentActionPlugins.Clear();
+        _streamActionPlugins.Clear();
         _contexts.Clear();
 
         if (Directory.Exists(_pluginsDirectory))
@@ -67,6 +75,64 @@ public sealed class PluginLoader : IPluginLoader
         return Task.CompletedTask;
     }
 
+    public async Task ActivateActionPluginsAsync(IPluginHost host, CancellationToken cancellationToken = default)
+    {
+        await DeactivateActionPluginsAsync(cancellationToken);
+
+        foreach (var plugin in _fragmentActionPlugins)
+        {
+            try
+            {
+                await plugin.ActivateAsync(host, cancellationToken);
+                _logger.LogInformation("Activated fragment action plugin {Id}", plugin.Descriptor.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to activate fragment action plugin {Id}", plugin.Descriptor.Id);
+            }
+        }
+
+        foreach (var plugin in _streamActionPlugins)
+        {
+            try
+            {
+                await plugin.ActivateAsync(host, cancellationToken);
+                _logger.LogInformation("Activated stream action plugin {Id}", plugin.Descriptor.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to activate stream action plugin {Id}", plugin.Descriptor.Id);
+            }
+        }
+    }
+
+    public async Task DeactivateActionPluginsAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var plugin in _fragmentActionPlugins)
+        {
+            try
+            {
+                await plugin.DeactivateAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deactivate fragment action plugin {Id}", plugin.Descriptor.Id);
+            }
+        }
+
+        foreach (var plugin in _streamActionPlugins)
+        {
+            try
+            {
+                await plugin.DeactivateAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deactivate stream action plugin {Id}", plugin.Descriptor.Id);
+            }
+        }
+    }
+
     public void RegisterBuiltInPlugins(IEnumerable<IClipStreamPlugin> plugins)
     {
         foreach (var plugin in plugins)
@@ -78,6 +144,12 @@ public sealed class PluginLoader : IPluginLoader
                     break;
                 case IFragmentEnricherPlugin enricherPlugin:
                     _enricherPlugins.Add(enricherPlugin);
+                    break;
+                case IFragmentActionPlugin fragmentActionPlugin:
+                    _fragmentActionPlugins.Add(fragmentActionPlugin);
+                    break;
+                case IStreamActionPlugin streamActionPlugin:
+                    _streamActionPlugins.Add(streamActionPlugin);
                     break;
             }
         }
@@ -110,6 +182,14 @@ public sealed class PluginLoader : IPluginLoader
                 case IFragmentEnricherPlugin enricherPlugin:
                     _enricherPlugins.Add(enricherPlugin);
                     _logger.LogInformation("Loaded enricher plugin {Id}", enricherPlugin.Descriptor.Id);
+                    break;
+                case IFragmentActionPlugin fragmentActionPlugin:
+                    _fragmentActionPlugins.Add(fragmentActionPlugin);
+                    _logger.LogInformation("Loaded fragment action plugin {Id}", fragmentActionPlugin.Descriptor.Id);
+                    break;
+                case IStreamActionPlugin streamActionPlugin:
+                    _streamActionPlugins.Add(streamActionPlugin);
+                    _logger.LogInformation("Loaded stream action plugin {Id}", streamActionPlugin.Descriptor.Id);
                     break;
             }
         }

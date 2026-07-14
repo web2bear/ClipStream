@@ -28,6 +28,8 @@ public interface IFragmentRepository
     Task MoveToStreamAsync(Guid fragmentId, Guid targetStreamId, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsByContentHashAsync(string contentHash, CancellationToken cancellationToken = default);
+
+    Task UpdateTitleAsync(Guid fragmentId, string title, CancellationToken cancellationToken = default);
 }
 
 public sealed class FragmentAddedEventArgs : EventArgs

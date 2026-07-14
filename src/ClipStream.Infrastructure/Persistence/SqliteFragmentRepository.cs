@@ -24,8 +24,8 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
         {
             fragmentCmd.Transaction = (SqliteTransaction)transaction;
             fragmentCmd.CommandText = """
-                INSERT INTO fragments (id, captured_at, kind, preview_text, source_process, source_process_id, content_hash, metadata_json)
-                VALUES ($id, $capturedAt, $kind, $preview, $source, $sourceId, $hash, $metadata)
+                INSERT INTO fragments (id, captured_at, kind, preview_text, source_process, source_process_id, content_hash, metadata_json, title)
+                VALUES ($id, $capturedAt, $kind, $preview, $source, $sourceId, $hash, $metadata, $title)
                 """;
             fragmentCmd.Parameters.AddWithValue("$id", fragment.Id.ToString());
             fragmentCmd.Parameters.AddWithValue("$capturedAt", fragment.CapturedAt.ToString("O"));
@@ -35,6 +35,7 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
             fragmentCmd.Parameters.AddWithValue("$sourceId", (object?)fragment.SourceProcessId ?? DBNull.Value);
             fragmentCmd.Parameters.AddWithValue("$hash", (object?)fragment.ContentHash ?? DBNull.Value);
             fragmentCmd.Parameters.AddWithValue("$metadata", JsonSerializer.Serialize(fragment.Metadata));
+            fragmentCmd.Parameters.AddWithValue("$title", fragment.Title);
             await fragmentCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -237,7 +238,7 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
     {
         var metadataJson = reader.IsDBNull(7) ? "{}" : reader.GetString(7);
         var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(metadataJson) ?? new Dictionary<string, string>();
-        return new ClipboardFragment(
+        var fragment = new ClipboardFragment(
             Guid.Parse(reader.GetString(0)),
             DateTimeOffset.Parse(reader.GetString(1)),
             (FragmentKind)reader.GetInt32(2),
@@ -247,5 +248,30 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
             [],
             metadata,
             reader.IsDBNull(6) ? null : reader.GetString(6));
+        fragment.Title = reader.IsDBNull(8)
+            ? fragment.Kind switch
+            {
+                FragmentKind.Text or FragmentKind.RichText
+                    when fragment.PreviewText is { Length: > 0 } =>
+                    fragment.PreviewText.Length > 128 ? fragment.PreviewText[..128] : fragment.PreviewText,
+                FragmentKind.Image => $"Изображение от {fragment.CapturedAt:yyyy-MM-dd HH:mm}",
+                FragmentKind.Files => $"Файлы от {fragment.CapturedAt:yyyy-MM-dd HH:mm}",
+                FragmentKind.Binary => $"Двоичные данные от {fragment.CapturedAt:yyyy-MM-dd HH:mm}",
+                FragmentKind.Composite => $"Составной фрагмент от {fragment.CapturedAt:yyyy-MM-dd HH:mm}",
+                _ => $"Фрагмент от {fragment.CapturedAt:yyyy-MM-dd HH:mm}"
+            }
+            : reader.GetString(8);
+        return fragment;
+    }
+
+    public async Task UpdateTitleAsync(Guid fragmentId, string title, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _database.OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE fragments SET title = $title WHERE id = $id";
+        command.Parameters.AddWithValue("$title", title);
+        command.Parameters.AddWithValue("$id", fragmentId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 }

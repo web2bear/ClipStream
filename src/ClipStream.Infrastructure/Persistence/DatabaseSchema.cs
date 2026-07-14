@@ -19,7 +19,8 @@ public static class DatabaseSchema
             source_process TEXT,
             source_process_id INTEGER,
             content_hash TEXT,
-            metadata_json TEXT
+            metadata_json TEXT,
+            title TEXT
         );
 
         CREATE TABLE IF NOT EXISTS fragment_streams (

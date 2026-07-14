@@ -9,4 +9,16 @@ public sealed record ClipboardFragment(
     int? SourceProcessId,
     IReadOnlyList<FormatPayload> Payloads,
     IReadOnlyDictionary<string, string> Metadata,
-    string? ContentHash = null);
+    string? ContentHash = null)
+{
+    public string Title { get; set; } = Kind switch
+    {
+        FragmentKind.Text or FragmentKind.RichText when PreviewText is { Length: > 0 } =>
+            PreviewText.Length > 128 ? PreviewText[..128] : PreviewText,
+        FragmentKind.Image => $"Изображение от {CapturedAt:yyyy-MM-dd HH:mm}",
+        FragmentKind.Files => $"Файлы от {CapturedAt:yyyy-MM-dd HH:mm}",
+        FragmentKind.Binary => $"Двоичные данные от {CapturedAt:yyyy-MM-dd HH:mm}",
+        FragmentKind.Composite => $"Составной фрагмент от {CapturedAt:yyyy-MM-dd HH:mm}",
+        _ => $"Фрагмент от {CapturedAt:yyyy-MM-dd HH:mm}"
+    };
+}
