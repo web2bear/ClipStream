@@ -1,22 +1,28 @@
 using System.Windows;
+using System.Windows.Controls;
 using ClipStream.Core.Models;
 
 namespace ClipStream.App.Windows;
 
 public partial class StreamDialog : Window
 {
+    private StreamIcons.IconOption _selectedIcon;
+
     public StreamDialogResult? Result { get; private set; }
 
     private StreamDialog(bool isEdit, string defaultName, string defaultIcon)
     {
         InitializeComponent();
-        Title = isEdit ? "Edit stream" : "New stream";
-        ConfirmButton.Content = isEdit ? "Save" : "Create";
+        Title = isEdit ? "Изменить поток" : "Новый поток";
+        ConfirmButton.Content = isEdit ? "Сохранить" : "Создать";
         NameBox.Text = defaultName;
+
         IconList.ItemsSource = StreamIcons.All;
-        IconList.SelectedItem = StreamIcons.All.FirstOrDefault(icon =>
+        _selectedIcon = StreamIcons.All.FirstOrDefault(icon =>
             string.Equals(icon.Key, defaultIcon, StringComparison.OrdinalIgnoreCase))
             ?? StreamIcons.All.First(icon => icon.Key == StreamIcons.DefaultKey);
+        IconList.SelectedItem = _selectedIcon;
+        ApplySelectedIcon();
 
         Loaded += (_, _) =>
         {
@@ -41,6 +47,28 @@ public partial class StreamDialog : Window
         return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 
+    private void IconButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        IconPopup.IsOpen = !IconPopup.IsOpen;
+    }
+
+    private void IconList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (IconList.SelectedItem is not StreamIcons.IconOption icon)
+        {
+            return;
+        }
+
+        _selectedIcon = icon;
+        ApplySelectedIcon();
+        IconPopup.IsOpen = false;
+    }
+
+    private void ApplySelectedIcon()
+    {
+        SelectedIconGlyph.Text = _selectedIcon.Glyph;
+    }
+
     private void ConfirmButton_OnClick(object sender, RoutedEventArgs e)
     {
         var name = NameBox.Text.Trim();
@@ -49,8 +77,7 @@ public partial class StreamDialog : Window
             return;
         }
 
-        var icon = (IconList.SelectedItem as StreamIcons.IconOption)?.Key ?? StreamIcons.DefaultKey;
-        Result = new StreamDialogResult(name, icon);
+        Result = new StreamDialogResult(name, _selectedIcon.Key);
         DialogResult = true;
     }
 }

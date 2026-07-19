@@ -1,34 +1,43 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#14141F" />
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#1C1C2B" />
-    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#252538" />
-    <SolidColorBrush x:Key="BorderBrush" Color="#3A3A52" />
-    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#2A2A3E" />
+    <!-- Windows 11 File Explorer dark -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#202020" />
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#191919" />
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#191919" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="CommandBarBackgroundBrush" Color="#202020" />
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#202020" />
 
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EDEEF5" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9496AB" />
-    <SolidColorBrush x:Key="TextMutedBrush" Color="#6B6D82" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#3F3F3F" />
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#2B2B2B" />
+    <SolidColorBrush x:Key="ColumnHeaderBorderBrush" Color="#3F3F3F" />
 
-    <SolidColorBrush x:Key="AccentBrush" Color="#7C6CF0" />
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#9488F5" />
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="#6558D9" />
-    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#2A2548" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#C5C5C5" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#9A9A9A" />
 
-    <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#EDEEF5" />
-    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#2A2A3E" />
-    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#35354D" />
-    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#40405C" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#60CDFF" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#7AD4FF" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#4CB8E6" />
+    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#0F3A4D" />
 
-    <SolidColorBrush x:Key="ListItemHoverBrush" Color="#252538" />
-    <SolidColorBrush x:Key="ListItemSelectedBrush" Color="#2F2B4A" />
-    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="#7C6CF0" />
+    <SolidColorBrush x:Key="FolderIconBrush" Color="#FCE100" />
 
-    <SolidColorBrush x:Key="DropHighlightBrush" Color="#3D3568" />
-    <SolidColorBrush x:Key="ScrollbarThumbBrush" Color="#4A4A62" />
+    <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#3D3D3D" />
+    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#4A4A4A" />
 
-    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#1C1C2B" />
-    <SolidColorBrush x:Key="InputBorderBrush" Color="#3A3A52" />
+    <SolidColorBrush x:Key="ListItemHoverBrush" Color="#2B2B2B" />
+    <SolidColorBrush x:Key="ListItemSelectedBrush" Color="#333333" />
+    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="#333333" />
+
+    <SolidColorBrush x:Key="DropHighlightBrush" Color="#3D3D3D" />
+    <SolidColorBrush x:Key="ScrollbarThumbBrush" Color="#6B6B6B" />
+
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#3F3F3F" />
 
 </ResourceDictionary>

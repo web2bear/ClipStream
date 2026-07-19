@@ -55,6 +55,7 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<IPluginHost, PluginHost>();
                 services.AddSingleton<ActionContextFactory>();
                 services.AddSingleton<IThemeService, ThemeService>();
+                services.AddSingleton<IFragmentPreviewService, FragmentPreviewService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<ClipboardHostWindow>();
@@ -114,7 +115,7 @@ public partial class App : System.Windows.Application
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
             Text = "ClipStream",
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = LoadAppIcon(),
             Visible = true
         };
 
@@ -135,6 +136,21 @@ public partial class App : System.Windows.Application
             mainWindow.Hide();
             mainWindow.WindowState = System.Windows.WindowState.Normal;
         };
+    }
+
+    private static System.Drawing.Icon LoadAppIcon()
+    {
+        var uri = new Uri("pack://application:,,,/Assets/app.ico", UriKind.Absolute);
+        var streamInfo = GetResourceStream(uri);
+        if (streamInfo?.Stream is not null)
+        {
+            using var stream = streamInfo.Stream;
+            // NotifyIcon keeps the icon handle; clone so the stream can be disposed.
+            using var temp = new System.Drawing.Icon(stream);
+            return (System.Drawing.Icon)temp.Clone();
+        }
+
+        return System.Drawing.SystemIcons.Application;
     }
 
     private static void RestoreMainWindow(System.Windows.Window mainWindow)

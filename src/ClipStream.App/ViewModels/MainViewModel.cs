@@ -1,5 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using ClipStream.App.Converters;
 using ClipStream.App.Services;
 using ClipStream.App.Windows;
 using ClipStream.Core.Models;
@@ -17,7 +21,9 @@ public partial class MainViewModel : ObservableObject
     private readonly IPluginLoader _pluginLoader;
     private readonly ActionContextFactory _actionContextFactory;
     private readonly IThemeService _themeService;
+    private readonly IFragmentPreviewService _previewService;
     private readonly MutableStatusReporter _statusReporter;
+    private CancellationTokenSource? _previewLoadCts;
 
     [ObservableProperty]
     private ObservableCollection<ClipStreamEntity> _streams = [];
@@ -43,12 +49,40 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDarkTheme = true;
 
+    [ObservableProperty]
+    private bool _isDetailsPaneVisible = true;
+
+    [ObservableProperty]
+    private GridLength _detailsPaneRowHeight = new(220);
+
+    [ObservableProperty]
+    private ImageSource? _previewImage;
+
+    [ObservableProperty]
+    private string _previewText = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasPreviewImage;
+
+    [ObservableProperty]
+    private string _selectedFragmentSizeText = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedFragmentFormatsText = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedFragmentKindText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isTextEditorAvailable;
+
     public MainViewModel(
         IStreamRepository streamRepository,
         IFragmentRepository fragmentRepository,
         IPluginLoader pluginLoader,
         ActionContextFactory actionContextFactory,
         IThemeService themeService,
+        IFragmentPreviewService previewService,
         MutableStatusReporter statusReporter)
     {
         _streamRepository = streamRepository;
@@ -56,6 +90,7 @@ public partial class MainViewModel : ObservableObject
         _pluginLoader = pluginLoader;
         _actionContextFactory = actionContextFactory;
         _themeService = themeService;
+        _previewService = previewService;
         _statusReporter = statusReporter;
         _statusReporter.SetHandler(message => StatusText = message);
         _isDarkTheme = themeService.IsDarkTheme;
@@ -220,10 +255,112 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedFragmentChanged(ClipboardFragment? value)
     {
         _ = UpdateFragmentActionMenuItemsAsync(value);
+        _ = LoadFragmentPreviewAsync(value);
     }
 
     [RelayCommand]
     private void ToggleTheme() => _themeService.ToggleTheme();
+
+    [RelayCommand]
+    private void ToggleDetailsPane()
+    {
+        IsDetailsPaneVisible = !IsDetailsPaneVisible;
+        DetailsPaneRowHeight = IsDetailsPaneVisible ? new GridLength(220) : new GridLength(0);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenInTextEditor))]
+    private async Task OpenInTextEditorAsync()
+    {
+        if (SelectedFragment is null || string.IsNullOrEmpty(PreviewText))
+        {
+            return;
+        }
+
+        try
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "ClipStream", "preview");
+            Directory.CreateDirectory(directory);
+
+            var extension = SelectedFragment.Kind == FragmentKind.RichText ? ".html" : ".txt";
+            var path = Path.Combine(directory, $"{SelectedFragment.Id:N}{extension}");
+            await File.WriteAllTextAsync(path, PreviewText);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+
+            StatusText = $"Opened in editor: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to open in editor: {ex.Message}";
+        }
+    }
+
+    private bool CanOpenInTextEditor() => IsTextEditorAvailable;
+
+    partial void OnIsTextEditorAvailableChanged(bool value) =>
+        OpenInTextEditorCommand.NotifyCanExecuteChanged();
+
+    private async Task LoadFragmentPreviewAsync(ClipboardFragment? fragment)
+    {
+        _previewLoadCts?.Cancel();
+        _previewLoadCts?.Dispose();
+        _previewLoadCts = new CancellationTokenSource();
+        var token = _previewLoadCts.Token;
+
+        if (fragment is null)
+        {
+            PreviewImage = null;
+            HasPreviewImage = false;
+            PreviewText = string.Empty;
+            SelectedFragmentSizeText = string.Empty;
+            SelectedFragmentFormatsText = string.Empty;
+            SelectedFragmentKindText = string.Empty;
+            IsTextEditorAvailable = false;
+            return;
+        }
+
+        SelectedFragmentKindText = FragmentKindDisplayConverter.Format(fragment.Kind);
+        SelectedFragmentSizeText = ByteSizeConverter.FormatBytes(fragment.Payloads.Sum(p => p.SizeBytes));
+        SelectedFragmentFormatsText = string.Join(", ", fragment.Payloads.Select(p => p.FormatName));
+        PreviewText = fragment.PreviewText ?? string.Empty;
+        PreviewImage = null;
+        HasPreviewImage = false;
+        IsTextEditorAvailable = false;
+
+        try
+        {
+            if (fragment.Kind is FragmentKind.Text or FragmentKind.RichText)
+            {
+                var text = await _previewService.TryLoadTextAsync(fragment, token);
+                if (!token.IsCancellationRequested)
+                {
+                    PreviewText = text ?? fragment.PreviewText ?? string.Empty;
+                    IsTextEditorAvailable = !string.IsNullOrWhiteSpace(PreviewText);
+                }
+            }
+            else if (fragment.Kind == FragmentKind.Files)
+            {
+                PreviewText = fragment.PreviewText ?? string.Empty;
+            }
+
+            var image = await _previewService.TryLoadImageAsync(fragment, token);
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            PreviewImage = image;
+            HasPreviewImage = image is not null;
+        }
+        catch (OperationCanceledException)
+        {
+            // Selection changed.
+        }
+    }
 
     public async Task ExecuteFragmentActionByIdAsync(string pluginId, ClipboardFragment? fragment = null)
     {
