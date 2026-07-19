@@ -70,4 +70,6 @@ dotnet run --project src/ClipStream.App
 
 ## Plugins
 
-Built-in plugins are registered via DI. Custom DLLs implementing `IClipStreamPlugin` can be placed in `%AppData%/ClipStream/plugins/` (see [plugins/README.md](plugins/README.md)).
+Built-in plugins are registered via DI. Custom DLLs implementing `IClipStreamPlugin` can be placed in `%AppData%/ClipStream/plugins/`.
+
+See **[Plugin API](docs/plugins.md)** for interfaces, loading rules, and examples (format, enricher, fragment/stream actions).
