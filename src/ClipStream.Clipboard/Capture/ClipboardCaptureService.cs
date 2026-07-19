@@ -155,7 +155,12 @@ public sealed class ClipboardCaptureService : IClipboardCaptureService
 
         try
         {
-            var hwnd = User32.GetForegroundWindow();
+            var hwnd = User32.GetClipboardOwner();
+            if (hwnd == IntPtr.Zero || !User32.IsWindow(hwnd))
+            {
+                hwnd = User32.GetForegroundWindow();
+            }
+
             if (hwnd == IntPtr.Zero)
             {
                 return;

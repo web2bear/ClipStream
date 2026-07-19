@@ -210,6 +210,7 @@ public sealed class ClipboardWriter : IClipboardWriter
             using (_ownershipGuard.SuppressListening())
             {
                 global::System.Windows.Clipboard.SetDataObject(dataObject, copy: true);
+                _ownershipGuard.MarkOwnSequence(User32.GetClipboardSequenceNumber());
             }
         });
     }

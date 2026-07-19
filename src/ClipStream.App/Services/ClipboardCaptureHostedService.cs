@@ -82,6 +82,14 @@ public sealed class ClipboardCaptureHostedService : IHostedService
                 return;
             }
 
+            if (ClipboardPrivacyFilter.ShouldIgnore(capture))
+            {
+                _logger.LogDebug(
+                    "Clipboard change ignored (privacy/exclude format), sequence {Sequence}",
+                    capture.ClipboardSequence);
+                return;
+            }
+
             var fragment = await _pipeline.ProcessAsync(capture);
             if (fragment is null)
             {

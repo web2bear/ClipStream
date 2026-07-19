@@ -61,6 +61,9 @@ internal static class User32
     [DllImport("user32.dll")]
     public static extern uint GetClipboardSequenceNumber();
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetClipboardOwner();
+
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern IntPtr GlobalLock(IntPtr hMem);
 

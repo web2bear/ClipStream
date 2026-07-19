@@ -78,12 +78,15 @@ public sealed class Win32ClipboardListener : IClipboardListener
     {
         if (msg == User32.WM_CLIPBOARDUPDATE)
         {
-            if (_ownershipGuard.IsOwnWrite)
+            var sequence = User32.GetClipboardSequenceNumber();
+            if (_ownershipGuard.ShouldIgnoreSequence(sequence))
             {
+                _lastSequence = sequence;
                 return IntPtr.Zero;
             }
 
-            var sequence = User32.GetClipboardSequenceNumber();
+            _ownershipGuard.ClearSuppressedSequenceIfExternal(sequence);
+
             if (sequence == _lastSequence)
             {
                 return IntPtr.Zero;
