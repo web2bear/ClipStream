@@ -1,7 +1,43 @@
 # ClipStream
 !!! AI agent–generated app; no manual coding involved. !!!
 
-Windows clipboard manager with stream-based history, plugin pipeline, and Obsidian vault export.
+Windows clipboard manager with stream-based history, plugin pipeline, and Markdown export.
+
+## Features
+
+### Clipboard monitoring
+- Win32 `AddClipboardFormatListener` / `WM_CLIPBOARDUPDATE` on a hidden host window
+- 100 ms debounce and sequence-number dedup
+- Sticky own-write suppress: own `SetDataObject` updates are ignored by sequence after write
+- Privacy filter skips password-manager / exclude formats (`Clipboard Viewer Ignore`, `ExcludeClipboardContentFromMonitorProcessing`, zeroed `CanIncludeInClipboardHistory` / `CanUploadToCloudClipboard`)
+- Source process from `GetClipboardOwner` (fallback: foreground window)
+
+### Capture and plugins
+- Raw multi-format capture with OpenClipboard retries
+- Plugin pipeline: first matching format plugin by priority, then enrichers
+- Built-in formats: text, HTML, image, files, generic binary fallback
+- Content-hash (SHA-256) deduplication before save
+
+### Streams and routing
+- Named streams with icons; default `inbox` stream
+- Drag-and-drop fragments between streams
+- Routing engine (regex / kind / source process / format rules) — persisted in SQLite; no rule editor UI yet (without rules everything goes to inbox)
+
+### UI
+- Main window: streams list + fragment list (kind, title, preview, time)
+- Tray icon: show / exit; minimize hides to tray
+- Dark / light theme (persisted in settings)
+- Context actions: paste to active window, export to folder
+- Editable fragment titles
+
+### Paste
+- Rebuild clipboard payloads from blob store
+- Paste to last external foreground window (activate + Ctrl+V)
+
+### Export
+- Export fragment or stream to a folder as Markdown with YAML frontmatter
+- Optional attachments under `attachments/` (content-addressed copies)
+- Filename from title slug with uniqueness suffixes
 
 ## Build
 
@@ -13,19 +49,25 @@ dotnet run --project src/ClipStream.App
 
 ## Architecture
 
-- `ClipStream.App` — WPF UI, tray icon, clipboard host window
-- `ClipStream.Core` — domain models and service contracts
-- `ClipStream.Clipboard` — Win32 clipboard listener and paste/DnD
-- `ClipStream.Infrastructure` — SQLite, blob store, plugins, routing
-- `ClipStream.Export` — Obsidian-compatible vault export
-- `ClipStream.Plugins.BuiltIn` — text, HTML, image, files, generic plugins
+| Project | Role |
+|---------|------|
+| `ClipStream.App` | WPF UI, tray, clipboard host window, themes |
+| `ClipStream.Core` | Domain models and service contracts |
+| `ClipStream.Clipboard` | Win32 listener, capture, privacy filter, paste |
+| `ClipStream.Infrastructure` | SQLite, blob store, plugin loader, routing |
+| `ClipStream.Export` | Markdown directory exporter |
+| `ClipStream.Plugins.Abstractions` | Plugin contracts |
+| `ClipStream.Plugins.BuiltIn` | Format plugins and paste/export actions |
 
 ## Data
 
-- Database: `%AppData%/ClipStream/clipstream.db`
-- Blobs: `%AppData%/ClipStream/blobs/`
-- User plugins: `%AppData%/ClipStream/plugins/*.dll`
+| Path | Contents |
+|------|----------|
+| `%AppData%/ClipStream/clipstream.db` | SQLite (streams, fragments, payloads, routing rules) |
+| `%AppData%/ClipStream/blobs/` | Content-addressed binary payloads |
+| `%AppData%/ClipStream/settings.json` | UI settings (theme) |
+| `%AppData%/ClipStream/plugins/*.dll` | User plugins |
 
-## Export
+## Plugins
 
-See [docs/obsidian-export.md](docs/obsidian-export.md).
+Built-in plugins are registered via DI. Custom DLLs implementing `IClipStreamPlugin` can be placed in `%AppData%/ClipStream/plugins/` (see [plugins/README.md](plugins/README.md)).
