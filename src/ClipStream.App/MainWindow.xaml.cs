@@ -1,7 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ClipStream.Core.Models;
 using TextBox = System.Windows.Controls.TextBox;
@@ -12,6 +11,9 @@ namespace ClipStream.App;
 
 public partial class MainWindow : Window
 {
+    private ClipboardFragment? _titleEditFragment;
+    private bool _isEndingTitleEdit;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -48,86 +50,80 @@ public partial class MainWindow : Window
 
     private void TitleDisplay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount < 2 || sender is not TextBlock display || display.Parent is not System.Windows.Controls.Panel panel)
+        if (e.ClickCount < 2
+            || DataContext is not ViewModels.MainViewModel viewModel
+            || viewModel.SelectedFragment is null)
         {
             return;
         }
 
         e.Handled = true;
-        var editor = FindChild<TextBox>(panel);
-        if (editor is null)
-        {
-            return;
-        }
-
-        display.Visibility = Visibility.Collapsed;
-        editor.Visibility = Visibility.Visible;
-        editor.Focus();
-        editor.SelectAll();
+        _titleEditFragment = viewModel.SelectedFragment;
+        TitleDisplay.Visibility = Visibility.Collapsed;
+        TitleEditor.Visibility = Visibility.Visible;
+        TitleEditor.Focus();
+        TitleEditor.SelectAll();
     }
 
-    private void TitleTextBox_KeyDown(object sender, KeyEventArgs e)
+    private async void TitleTextBox_KeyDown(object sender, KeyEventArgs e)
     {
-        if (sender is not TextBox textBox)
-        {
-            return;
-        }
-
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            EndTitleEdit(textBox, commit: true);
+            await FinishTitleEditAsync(save: true);
         }
         else if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
-            EndTitleEdit(textBox, commit: false);
+            await FinishTitleEditAsync(save: false);
         }
     }
 
     private async void TitleTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (sender is not TextBox textBox)
+        if (_isEndingTitleEdit || _titleEditFragment is null)
         {
             return;
         }
 
-        if (textBox.DataContext is ClipboardFragment fragment
-            && DataContext is ViewModels.MainViewModel viewModel)
+        await FinishTitleEditAsync(save: true);
+    }
+
+    private async Task FinishTitleEditAsync(bool save)
+    {
+        if (_isEndingTitleEdit)
         {
-            var newTitle = textBox.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(newTitle) && newTitle != fragment.Title)
+            return;
+        }
+
+        _isEndingTitleEdit = true;
+        try
+        {
+            var fragment = _titleEditFragment;
+            _titleEditFragment = null;
+            var newTitle = TitleEditor.Text.Trim();
+
+            if (!save)
+            {
+                TitleEditor.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            }
+
+            TitleEditor.Visibility = Visibility.Collapsed;
+            TitleDisplay.Visibility = Visibility.Visible;
+            Keyboard.ClearFocus();
+
+            if (save
+                && fragment is not null
+                && DataContext is ViewModels.MainViewModel viewModel
+                && !string.IsNullOrWhiteSpace(newTitle)
+                && newTitle != fragment.Title)
             {
                 await viewModel.SaveFragmentTitleAsync(fragment, newTitle);
             }
-            else
-            {
-                textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
-            }
         }
-
-        EndTitleEdit(textBox, commit: false);
-    }
-
-    private static void EndTitleEdit(TextBox editor, bool commit)
-    {
-        if (editor.Parent is not System.Windows.Controls.Panel panel)
+        finally
         {
-            return;
-        }
-
-        var display = FindChild<TextBlock>(panel);
-        editor.Visibility = Visibility.Collapsed;
-        if (display is not null)
-        {
-            display.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
-            display.Visibility = Visibility.Visible;
-        }
-
-        if (commit)
-        {
-            editor.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            _isEndingTitleEdit = false;
         }
     }
 
@@ -164,26 +160,5 @@ public partial class MainWindow : Window
         {
             viewModel.StatusText = $"Copy failed: {ex.Message}";
         }
-    }
-
-    private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
-    {
-        var count = VisualTreeHelper.GetChildrenCount(parent);
-        for (var i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T match)
-            {
-                return match;
-            }
-
-            var nested = FindChild<T>(child);
-            if (nested is not null)
-            {
-                return nested;
-            }
-        }
-
-        return null;
     }
 }

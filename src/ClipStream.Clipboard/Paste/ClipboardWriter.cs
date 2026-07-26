@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using ClipStream.Clipboard.Guard;
 using ClipStream.Clipboard.Win32;
+using ClipStream.Core;
 using ClipStream.Core.Models;
 using ClipStream.Core.Storage;
 
@@ -70,27 +71,7 @@ public sealed class ClipboardPayloadBuilder : IClipboardPayloadBuilder
 
     private static void SetFileDrop(IDataObject dataObject, byte[] data)
     {
-        var paths = new List<string>();
-        if (data.Length >= 20)
-        {
-            var offset = 20;
-            while (offset < data.Length - 1)
-            {
-                var end = Array.IndexOf(data, (byte)0, offset);
-                if (end < 0)
-                {
-                    break;
-                }
-
-                if (end > offset)
-                {
-                    paths.Add(System.Text.Encoding.Unicode.GetString(data, offset, end - offset));
-                }
-
-                offset = end + 2;
-            }
-        }
-
+        var paths = FileDropParser.Parse(data);
         if (paths.Count > 0)
         {
             dataObject.SetData(DataFormats.FileDrop, paths.ToArray());

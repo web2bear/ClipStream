@@ -1,4 +1,4 @@
-using System.Text;
+using ClipStream.Core;
 using ClipStream.Core.Models;
 using ClipStream.Plugins.Abstractions;
 
@@ -22,7 +22,7 @@ public sealed class FilesFormatPlugin : BuiltInPluginBase, IClipboardFormatPlugi
             return new Skipped("No files format");
         }
 
-        var paths = ParseFileDrop(filesFormat.Data);
+        var paths = FileDropParser.Parse(filesFormat.Data);
         var preview = paths.Count == 0 ? "[Files]" : string.Join(Environment.NewLine, paths);
         var storageKey = await context.BlobStore.StoreAsync(filesFormat.Data, cancellationToken);
         var hash = ContentHashHelper.ComputeCaptureHash(capture.Formats);
@@ -39,37 +39,5 @@ public sealed class FilesFormatPlugin : BuiltInPluginBase, IClipboardFormatPlugi
             hash);
 
         return new FragmentProduced(fragment);
-    }
-
-    private static List<string> ParseFileDrop(byte[] data)
-    {
-        if (data.Length < 20)
-        {
-            return [];
-        }
-
-        var paths = new List<string>();
-        var offset = 20;
-        while (offset < data.Length - 1)
-        {
-            var end = Array.IndexOf(data, (byte)0, offset);
-            if (end < 0)
-            {
-                break;
-            }
-
-            if (end > offset)
-            {
-                paths.Add(Encoding.Unicode.GetString(data, offset, end - offset));
-            }
-
-            offset = end + 2;
-            if (offset < data.Length && data[offset] == 0 && data[offset - 1] == 0)
-            {
-                break;
-            }
-        }
-
-        return paths;
     }
 }

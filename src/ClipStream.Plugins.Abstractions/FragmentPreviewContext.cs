@@ -9,3 +9,5 @@ public abstract record FragmentPreviewResult;
 public sealed record TextFragmentPreview(string Text, bool CanOpenInEditor = true) : FragmentPreviewResult;
 
 public sealed record ImageFragmentPreview(byte[] Data, string FormatName) : FragmentPreviewResult;
+
+public sealed record FilesFragmentPreview(IReadOnlyList<string> Paths) : FragmentPreviewResult;

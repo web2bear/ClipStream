@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IFragmentPreviewService _previewService;
     private readonly MutableStatusReporter _statusReporter;
     private CancellationTokenSource? _previewLoadCts;
+    private int _previewLoadVersion;
 
     [ObservableProperty]
     private ObservableCollection<ClipStreamEntity> _streams = [];
@@ -75,6 +76,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isTextEditorAvailable;
+
+    [ObservableProperty]
+    private IReadOnlyList<FilePreviewItem> _previewFiles = [];
+
+    [ObservableProperty]
+    private bool _hasPreviewFiles;
 
     public MainViewModel(
         IStreamRepository streamRepository,
@@ -375,8 +382,39 @@ public partial class MainViewModel : ObservableObject
     partial void OnHasPreviewImageChanged(bool value) =>
         OpenInImageViewerCommand.NotifyCanExecuteChanged();
 
+    [RelayCommand]
+    private void OpenFilePreview(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            StatusText = $"Файл не найден: {path}";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+
+            StatusText = $"Открыто: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Не удалось открыть файл: {ex.Message}";
+        }
+    }
+
     private async Task LoadFragmentPreviewAsync(ClipboardFragment? fragment)
     {
+        var loadVersion = Interlocked.Increment(ref _previewLoadVersion);
         _previewLoadCts?.Cancel();
         _previewLoadCts?.Dispose();
         _previewLoadCts = new CancellationTokenSource();
@@ -387,6 +425,8 @@ public partial class MainViewModel : ObservableObject
             PreviewImage = null;
             HasPreviewImage = false;
             PreviewText = string.Empty;
+            PreviewFiles = [];
+            HasPreviewFiles = false;
             SelectedFragmentSizeText = string.Empty;
             SelectedFragmentFormatsText = string.Empty;
             SelectedFragmentKindText = string.Empty;
@@ -400,37 +440,32 @@ public partial class MainViewModel : ObservableObject
         PreviewText = fragment.PreviewText ?? string.Empty;
         PreviewImage = null;
         HasPreviewImage = false;
+        PreviewFiles = [];
+        HasPreviewFiles = false;
         IsTextEditorAvailable = false;
 
         try
         {
-            var state = await _previewService.LoadAsync(fragment, token);
-            if (token.IsCancellationRequested)
+            var state = await _previewService.LoadAsync(fragment, token).ConfigureAwait(true);
+            if (loadVersion != _previewLoadVersion)
             {
                 return;
             }
 
-            void Apply()
-            {
-                PreviewText = state.PreviewText;
-                PreviewImage = state.PreviewImage;
-                HasPreviewImage = state.PreviewImage is not null;
-                IsTextEditorAvailable = state.CanOpenInEditor;
-            }
-
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher is not null && !dispatcher.CheckAccess())
-            {
-                await dispatcher.InvokeAsync(Apply);
-            }
-            else
-            {
-                Apply();
-            }
+            PreviewText = state.PreviewText;
+            PreviewImage = state.PreviewImage;
+            HasPreviewImage = state.PreviewImage is not null;
+            PreviewFiles = state.PreviewFiles ?? [];
+            HasPreviewFiles = PreviewFiles.Count > 0;
+            IsTextEditorAvailable = state.CanOpenInEditor;
         }
         catch (OperationCanceledException)
         {
             // Selection changed.
+        }
+        catch (ObjectDisposedException)
+        {
+            // Previous load cancelled and disposed its token source.
         }
     }
 
@@ -540,21 +575,14 @@ public partial class MainViewModel : ObservableObject
 
     public async Task SaveFragmentTitleAsync(ClipboardFragment fragment, string newTitle)
     {
+        newTitle = newTitle.Trim();
         if (string.IsNullOrWhiteSpace(newTitle) || newTitle == fragment.Title)
         {
             return;
         }
 
         await _fragmentRepository.UpdateTitleAsync(fragment.Id, newTitle);
-
-        var index = Fragments.IndexOf(fragment);
-        if (index >= 0)
-        {
-            fragment.Title = newTitle;
-            Fragments.RemoveAt(index);
-            Fragments.Insert(index, fragment);
-        }
-
+        fragment.Title = newTitle;
         StatusText = $"Заголовок изменён на \"{newTitle}\"";
     }
 }

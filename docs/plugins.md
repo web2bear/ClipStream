@@ -43,7 +43,7 @@ public sealed record PluginDescriptor(
     int Priority);   // lower runs first (format/enricher/preview ordering)
 ```
 
-Every plugin exposes `Descriptor`. Built-in format priorities: text `10`, HTML `20`, image `30`, files `40`, generic binary `1000`. Built-in preview priorities: text `10`, image `20`.
+Every plugin exposes `Descriptor`. Built-in format priorities: text `10`, HTML `20`, image `30`, files `40`, generic binary `1000`. Built-in preview priorities: text `10`, image `20`, files `30`.
 
 ---
 
@@ -261,9 +261,10 @@ public interface IFragmentPreviewPlugin : IClipStreamPlugin
 |------|---------|
 | `TextFragmentPreview(text, canOpenInEditor)` | Show text in the preview pane |
 | `ImageFragmentPreview(data, formatName)` | Host decodes bytes (`CF_DIB`, `PNG`, …) to an image |
+| `FilesFragmentPreview(paths)` | Show file list with Open/Run actions (shell icons in host) |
 | `null` | Decline after `CanPreview`; host tries the next matching preview plugin |
 
-If no plugin produces a result, the host falls back to `fragment.PreviewText` (e.g. file lists).
+If no plugin produces a result, the host falls back to `fragment.PreviewText`.
 
 Results are **data models** (no WPF types). The host maps them to UI controls.
 

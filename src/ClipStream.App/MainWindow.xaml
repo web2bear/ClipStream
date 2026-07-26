@@ -324,14 +324,15 @@
                                     </Grid.RowDefinitions>
 
                                     <Grid Grid.Row="0"
-                                          DataContext="{Binding SelectedFragment}"
                                           Margin="0,0,0,8"
                                           MinHeight="28">
-                                        <TextBlock Text="{Binding Title}"
+                                        <TextBlock x:Name="TitleDisplay"
+                                                   Text="{Binding SelectedFragment.Title}"
                                                    Style="{StaticResource PreviewTitleDisplayTextBlockStyle}"
                                                    ToolTip="Двойной щелчок — изменить имя"
                                                    MouseLeftButtonDown="TitleDisplay_OnMouseLeftButtonDown" />
-                                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                        <TextBox x:Name="TitleEditor"
+                                                 Text="{Binding SelectedFragment.Title, Mode=OneWay}"
                                                  Style="{StaticResource PreviewTitleEditTextBoxStyle}"
                                                  Visibility="Collapsed"
                                                  KeyDown="TitleTextBox_KeyDown"
@@ -354,11 +355,76 @@
                                                             <DataTrigger Binding="{Binding HasPreviewImage}" Value="True">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                             </DataTrigger>
+                                                            <DataTrigger Binding="{Binding HasPreviewFiles}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
                                                 </ScrollViewer.Style>
-                                                <TextBox Text="{Binding PreviewText, Mode=OneWay}"
+                                                <TextBox Text="{Binding DataContext.PreviewText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
                                                          Style="{StaticResource PreviewTextBoxStyle}" />
+                                            </ScrollViewer>
+
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ScrollViewer.Style>
+                                                    <Style TargetType="ScrollViewer">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasPreviewFiles}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ScrollViewer.Style>
+                                                <ItemsControl ItemsSource="{Binding PreviewFiles}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,0,0,8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Button Command="{Binding DataContext.OpenFilePreviewCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding Path=Path}"
+                                                                        IsEnabled="{Binding Exists}"
+                                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                                        Padding="8,4"
+                                                                        MinWidth="108"
+                                                                        ToolTip="{Binding Path=Path}">
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <Image Source="{Binding Icon}"
+                                                                               Width="16"
+                                                                               Height="16"
+                                                                               Margin="0,0,6,0"
+                                                                               VerticalAlignment="Center"
+                                                                               RenderOptions.BitmapScalingMode="NearestNeighbor">
+                                                                            <Image.Style>
+                                                                                <Style TargetType="Image">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding Icon}" Value="{x:Null}">
+                                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </Image.Style>
+                                                                        </Image>
+                                                                        <TextBlock Text="{Binding ActionLabel}"
+                                                                                   VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </Button>
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Path=Path}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding Path=Path}"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="10,0,0,0"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                             </ScrollViewer>
 
                                             <Border Background="Transparent"
@@ -399,6 +465,7 @@
                                                             <MultiDataTrigger>
                                                                 <MultiDataTrigger.Conditions>
                                                                     <Condition Binding="{Binding HasPreviewImage}" Value="False" />
+                                                                    <Condition Binding="{Binding HasPreviewFiles}" Value="False" />
                                                                     <Condition Binding="{Binding PreviewText}" Value="" />
                                                                 </MultiDataTrigger.Conditions>
                                                                 <Setter Property="Visibility" Value="Visible" />

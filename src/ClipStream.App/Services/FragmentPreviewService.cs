@@ -10,7 +10,8 @@ namespace ClipStream.App.Services;
 public sealed record FragmentPreviewUiState(
     string PreviewText,
     ImageSource? PreviewImage,
-    bool CanOpenInEditor);
+    bool CanOpenInEditor,
+    IReadOnlyList<FilePreviewItem>? PreviewFiles = null);
 
 public interface IFragmentPreviewService
 {
@@ -63,6 +64,7 @@ public sealed class FragmentPreviewService : IFragmentPreviewService
                     PreviewImage: null,
                     text.CanOpenInEditor && !string.IsNullOrWhiteSpace(text.Text)),
                 ImageFragmentPreview image => CreateImageUiState(image, fragment),
+                FilesFragmentPreview files => CreateFilesUiState(files),
                 FragmentPreviewResult unknown => throw new InvalidOperationException(
                     $"Unknown preview result type: {unknown.GetType().FullName}")
             };
@@ -92,6 +94,45 @@ public sealed class FragmentPreviewService : IFragmentPreviewService
             fragment.PreviewText ?? string.Empty,
             PreviewImage: null,
             CanOpenInEditor: false);
+    }
+
+    private static readonly HashSet<string> ExecutableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".exe", ".com", ".bat", ".cmd", ".msi", ".ps1", ".vbs", ".scr", ".msc"
+    };
+
+    private static FragmentPreviewUiState CreateFilesUiState(FilesFragmentPreview files)
+    {
+        var items = files.Paths
+            .Select(CreateFilePreviewItem)
+            .ToList();
+
+        return new FragmentPreviewUiState(
+            PreviewText: string.Empty,
+            PreviewImage: null,
+            CanOpenInEditor: false,
+            PreviewFiles: items);
+    }
+
+    private static FilePreviewItem CreateFilePreviewItem(string path)
+    {
+        var isDirectory = Directory.Exists(path);
+        var exists = isDirectory || File.Exists(path);
+        var isExecutable = !isDirectory
+            && ExecutableExtensions.Contains(Path.GetExtension(path));
+        var displayName = Path.GetFileName(path);
+        if (string.IsNullOrEmpty(displayName))
+        {
+            displayName = path;
+        }
+
+        return new FilePreviewItem(
+            path,
+            displayName,
+            isExecutable ? "Запустить" : "Открыть",
+            isExecutable,
+            exists,
+            ShellFileIconLoader.GetIcon(path, exists, isDirectory));
     }
 
     public async Task<string?> ExportImageToTempFileAsync(
