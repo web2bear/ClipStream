@@ -19,6 +19,8 @@ public interface IPluginLoader
     Task ActivateActionPluginsAsync(IPluginHost host, CancellationToken cancellationToken = default);
 
     Task DeactivateActionPluginsAsync(CancellationToken cancellationToken = default);
+
+    void RegisterBuiltInPlugins(IEnumerable<IClipStreamPlugin> plugins);
 }
 
 public interface IPluginPipeline

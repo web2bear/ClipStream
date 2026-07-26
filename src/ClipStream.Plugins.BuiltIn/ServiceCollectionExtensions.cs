@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
 
     public static void RegisterBuiltInPluginsWithLoader(IServiceProvider services)
     {
-        var loader = services.GetRequiredService<Infrastructure.Plugins.PluginLoader>();
+        var loader = services.GetRequiredService<IPluginLoader>();
         var plugins = services.GetServices<IClipStreamPlugin>();
         loader.RegisterBuiltInPlugins(plugins);
     }

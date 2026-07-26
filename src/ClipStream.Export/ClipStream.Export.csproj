@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ClipStream.Core\ClipStream.Core.csproj" />
-    <ProjectReference Include="..\ClipStream.Infrastructure\ClipStream.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

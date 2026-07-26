@@ -26,8 +26,8 @@ public class MarkdownDirectoryExporterTests
             await database.InitializeAsync();
             var streamRepo = new SqliteStreamRepository(database);
             await streamRepo.EnsureDefaultStreamAsync();
-            var fragmentRepo = new SqliteFragmentRepository(database);
             var blobStore = new FileBlobStore(blobRoot);
+            var fragmentRepo = new SqliteFragmentRepository(database, blobStore);
 
             var fragment = new ClipboardFragment(
                 Guid.NewGuid(),

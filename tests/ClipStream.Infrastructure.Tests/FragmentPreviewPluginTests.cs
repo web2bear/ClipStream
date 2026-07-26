@@ -146,6 +146,24 @@ public class FragmentPreviewPluginTests
         Assert.Empty(loader.FormatPlugins);
     }
 
+    [Fact]
+    public async Task PluginLoader_ReloadAsync_PreservesBuiltInPlugins()
+    {
+        var loader = new PluginLoader(NullLogger<PluginLoader>.Instance);
+        loader.RegisterBuiltInPlugins(
+            [new TextFormatPlugin(), new TextPreviewPlugin()]);
+
+        Assert.Single(loader.FormatPlugins);
+        Assert.Single(loader.PreviewPlugins);
+
+        await loader.ReloadAsync();
+
+        Assert.Single(loader.FormatPlugins);
+        Assert.Single(loader.PreviewPlugins);
+        Assert.Contains(loader.FormatPlugins, p => p.Descriptor.Id == "builtin.text");
+        Assert.Contains(loader.PreviewPlugins, p => p.Descriptor.Id == "builtin.preview.text");
+    }
+
     private static byte[] BuildUnicodeDropFiles(params string[] paths)
     {
         using var stream = new MemoryStream();
@@ -198,5 +216,11 @@ public class FragmentPreviewPluginTests
 
         public Task<bool> ExistsAsync(string storageKey, CancellationToken cancellationToken = default) =>
             Task.FromResult(_store.ContainsKey(storageKey));
+
+        public Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
+        {
+            _store.Remove(storageKey);
+            return Task.CompletedTask;
+        }
     }
 }

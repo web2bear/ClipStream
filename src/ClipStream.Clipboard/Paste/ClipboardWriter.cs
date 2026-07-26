@@ -172,15 +172,18 @@ public sealed class ClipboardWriter : IClipboardWriter
     private readonly IClipboardPayloadBuilder _payloadBuilder;
     private readonly IClipboardOwnershipGuard _ownershipGuard;
     private readonly IForegroundWindowTracker _foregroundTracker;
+    private readonly IPasteUiHook _pasteUiHook;
 
     public ClipboardWriter(
         IClipboardPayloadBuilder payloadBuilder,
         IClipboardOwnershipGuard ownershipGuard,
-        IForegroundWindowTracker foregroundTracker)
+        IForegroundWindowTracker foregroundTracker,
+        IPasteUiHook pasteUiHook)
     {
         _payloadBuilder = payloadBuilder;
         _ownershipGuard = ownershipGuard;
         _foregroundTracker = foregroundTracker;
+        _pasteUiHook = pasteUiHook;
     }
 
     public async Task SetFragmentAsync(ClipboardFragment fragment, CancellationToken cancellationToken = default)
@@ -207,12 +210,7 @@ public sealed class ClipboardWriter : IClipboardWriter
         await SetFragmentAsync(fragment, cancellationToken);
 
         await global::System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            if (global::System.Windows.Application.Current.MainWindow is { IsVisible: true } mainWindow)
-            {
-                mainWindow.Hide();
-            }
-        });
+            _pasteUiHook.OnBeforeExternalPaste());
 
         await Task.Delay(ActivationDelay, cancellationToken);
 

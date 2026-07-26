@@ -4,6 +4,7 @@ using ClipStream.Clipboard.Listener;
 using ClipStream.Clipboard.Paste;
 using ClipStream.Core.Paste;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace ClipStream.Clipboard;
@@ -16,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClipboardListener, Win32ClipboardListener>();
         services.AddSingleton<IClipboardCaptureService, ClipboardCaptureService>();
         services.AddSingleton<IClipboardPayloadBuilder, ClipboardPayloadBuilder>();
+        services.TryAddSingleton<IPasteUiHook>(_ => NullPasteUiHook.Instance);
         services.AddSingleton<ForegroundWindowTracker>();
         services.AddSingleton<IForegroundWindowTracker>(sp => sp.GetRequiredService<ForegroundWindowTracker>());
         services.AddHostedService(sp => sp.GetRequiredService<ForegroundWindowTracker>());

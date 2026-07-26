@@ -52,6 +52,17 @@ public sealed class FileBlobStore : IBlobStore
     public Task<bool> ExistsAsync(string storageKey, CancellationToken cancellationToken = default)
         => Task.FromResult(File.Exists(GetFullPath(storageKey)));
 
+    public Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
+    {
+        var fullPath = GetFullPath(storageKey);
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+        }
+
+        return Task.CompletedTask;
+    }
+
     private string GetFullPath(string storageKey) => Path.Combine(_rootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
 
     public static string ComputeHash(byte[] data)

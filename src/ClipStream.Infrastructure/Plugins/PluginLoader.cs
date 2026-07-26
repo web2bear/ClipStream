@@ -26,12 +26,26 @@ public sealed class PluginLoader : IPluginLoader
 {
     private readonly ILogger<PluginLoader> _logger;
     private readonly string _pluginsDirectory;
-    private readonly List<IClipboardFormatPlugin> _formatPlugins = [];
-    private readonly List<IFragmentEnricherPlugin> _enricherPlugins = [];
-    private readonly List<IFragmentActionPlugin> _fragmentActionPlugins = [];
-    private readonly List<IStreamActionPlugin> _streamActionPlugins = [];
-    private readonly List<IFragmentPreviewPlugin> _previewPlugins = [];
+
+    private readonly List<IClipboardFormatPlugin> _builtInFormatPlugins = [];
+    private readonly List<IFragmentEnricherPlugin> _builtInEnricherPlugins = [];
+    private readonly List<IFragmentActionPlugin> _builtInFragmentActionPlugins = [];
+    private readonly List<IStreamActionPlugin> _builtInStreamActionPlugins = [];
+    private readonly List<IFragmentPreviewPlugin> _builtInPreviewPlugins = [];
+
+    private readonly List<IClipboardFormatPlugin> _externalFormatPlugins = [];
+    private readonly List<IFragmentEnricherPlugin> _externalEnricherPlugins = [];
+    private readonly List<IFragmentActionPlugin> _externalFragmentActionPlugins = [];
+    private readonly List<IStreamActionPlugin> _externalStreamActionPlugins = [];
+    private readonly List<IFragmentPreviewPlugin> _externalPreviewPlugins = [];
+
     private readonly List<PluginLoadContext> _contexts = [];
+
+    private List<IClipboardFormatPlugin> _formatPlugins = [];
+    private List<IFragmentEnricherPlugin> _enricherPlugins = [];
+    private List<IFragmentActionPlugin> _fragmentActionPlugins = [];
+    private List<IStreamActionPlugin> _streamActionPlugins = [];
+    private List<IFragmentPreviewPlugin> _previewPlugins = [];
 
     public PluginLoader(ILogger<PluginLoader> logger)
     {
@@ -54,17 +68,17 @@ public sealed class PluginLoader : IPluginLoader
 
     public Task ReloadAsync(CancellationToken cancellationToken = default)
     {
-        _formatPlugins.Clear();
-        _enricherPlugins.Clear();
-        _fragmentActionPlugins.Clear();
-        _streamActionPlugins.Clear();
-        _previewPlugins.Clear();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var previousContexts = _contexts.ToArray();
         _contexts.Clear();
+        ClearExternalPlugins();
 
         if (Directory.Exists(_pluginsDirectory))
         {
             foreach (var dll in Directory.EnumerateFiles(_pluginsDirectory, "*.dll"))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     LoadPluginsFromAssembly(dll);
@@ -75,6 +89,9 @@ public sealed class PluginLoader : IPluginLoader
                 }
             }
         }
+
+        RebuildPublicLists();
+        UnloadContexts(previousContexts);
 
         return Task.CompletedTask;
     }
@@ -144,20 +161,55 @@ public sealed class PluginLoader : IPluginLoader
             switch (plugin)
             {
                 case IClipboardFormatPlugin formatPlugin:
-                    _formatPlugins.Add(formatPlugin);
+                    _builtInFormatPlugins.Add(formatPlugin);
                     break;
                 case IFragmentEnricherPlugin enricherPlugin:
-                    _enricherPlugins.Add(enricherPlugin);
+                    _builtInEnricherPlugins.Add(enricherPlugin);
                     break;
                 case IFragmentActionPlugin fragmentActionPlugin:
-                    _fragmentActionPlugins.Add(fragmentActionPlugin);
+                    _builtInFragmentActionPlugins.Add(fragmentActionPlugin);
                     break;
                 case IStreamActionPlugin streamActionPlugin:
-                    _streamActionPlugins.Add(streamActionPlugin);
+                    _builtInStreamActionPlugins.Add(streamActionPlugin);
                     break;
                 case IFragmentPreviewPlugin previewPlugin:
-                    _previewPlugins.Add(previewPlugin);
+                    _builtInPreviewPlugins.Add(previewPlugin);
                     break;
+            }
+        }
+
+        RebuildPublicLists();
+    }
+
+    private void ClearExternalPlugins()
+    {
+        _externalFormatPlugins.Clear();
+        _externalEnricherPlugins.Clear();
+        _externalFragmentActionPlugins.Clear();
+        _externalStreamActionPlugins.Clear();
+        _externalPreviewPlugins.Clear();
+    }
+
+    private void RebuildPublicLists()
+    {
+        _formatPlugins = [.._builtInFormatPlugins, .._externalFormatPlugins];
+        _enricherPlugins = [.._builtInEnricherPlugins, .._externalEnricherPlugins];
+        _fragmentActionPlugins = [.._builtInFragmentActionPlugins, .._externalFragmentActionPlugins];
+        _streamActionPlugins = [.._builtInStreamActionPlugins, .._externalStreamActionPlugins];
+        _previewPlugins = [.._builtInPreviewPlugins, .._externalPreviewPlugins];
+    }
+
+    private void UnloadContexts(IEnumerable<PluginLoadContext> contexts)
+    {
+        foreach (var context in contexts)
+        {
+            try
+            {
+                context.Unload();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to unload plugin load context");
             }
         }
     }
@@ -183,23 +235,23 @@ public sealed class PluginLoader : IPluginLoader
             switch (plugin)
             {
                 case IClipboardFormatPlugin formatPlugin:
-                    _formatPlugins.Add(formatPlugin);
+                    _externalFormatPlugins.Add(formatPlugin);
                     _logger.LogInformation("Loaded format plugin {Id}", formatPlugin.Descriptor.Id);
                     break;
                 case IFragmentEnricherPlugin enricherPlugin:
-                    _enricherPlugins.Add(enricherPlugin);
+                    _externalEnricherPlugins.Add(enricherPlugin);
                     _logger.LogInformation("Loaded enricher plugin {Id}", enricherPlugin.Descriptor.Id);
                     break;
                 case IFragmentActionPlugin fragmentActionPlugin:
-                    _fragmentActionPlugins.Add(fragmentActionPlugin);
+                    _externalFragmentActionPlugins.Add(fragmentActionPlugin);
                     _logger.LogInformation("Loaded fragment action plugin {Id}", fragmentActionPlugin.Descriptor.Id);
                     break;
                 case IStreamActionPlugin streamActionPlugin:
-                    _streamActionPlugins.Add(streamActionPlugin);
+                    _externalStreamActionPlugins.Add(streamActionPlugin);
                     _logger.LogInformation("Loaded stream action plugin {Id}", streamActionPlugin.Descriptor.Id);
                     break;
                 case IFragmentPreviewPlugin previewPlugin:
-                    _previewPlugins.Add(previewPlugin);
+                    _externalPreviewPlugins.Add(previewPlugin);
                     _logger.LogInformation("Loaded preview plugin {Id}", previewPlugin.Descriptor.Id);
                     break;
             }

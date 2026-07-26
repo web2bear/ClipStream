@@ -7,4 +7,6 @@ public interface IBlobStore
     Task<byte[]?> GetAsync(string storageKey, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsAsync(string storageKey, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default);
 }

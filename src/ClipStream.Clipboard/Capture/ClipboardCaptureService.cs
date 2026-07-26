@@ -36,42 +36,46 @@ public sealed class ClipboardCaptureService : IClipboardCaptureService
         _logger = logger;
     }
 
-    public Task<RawClipboardCapture?> CaptureAsync(CancellationToken cancellationToken = default)
+    public async Task<RawClipboardCapture?> CaptureAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Capture());
-    }
 
-    private RawClipboardCapture? Capture()
-    {
         var owner = _listener.ListenerHwnd;
         for (var attempt = 0; attempt < 8; attempt++)
         {
-            if (User32.OpenClipboard(owner))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var capture = await Task.Run(() => TryCaptureOnce(owner), cancellationToken);
+            if (capture is not null)
             {
-                try
-                {
-                    var capture = CaptureInternal();
-                    if (capture.Formats.Count > 0)
-                    {
-                        return capture;
-                    }
-                }
-                finally
-                {
-                    User32.CloseClipboard();
-                }
-            }
-            else
-            {
-                _logger.LogDebug("OpenClipboard attempt {Attempt} failed with error {Error}", attempt + 1, Marshal.GetLastWin32Error());
+                return capture;
             }
 
-            Thread.Sleep(15 * (attempt + 1));
+            _logger.LogDebug("OpenClipboard attempt {Attempt} failed", attempt + 1);
+            await Task.Delay(15 * (attempt + 1), cancellationToken);
         }
 
         _logger.LogWarning("Failed to capture clipboard after retries");
         return null;
+    }
+
+    private RawClipboardCapture? TryCaptureOnce(IntPtr owner)
+    {
+        if (!User32.OpenClipboard(owner))
+        {
+            _logger.LogDebug("OpenClipboard failed with error {Error}", Marshal.GetLastWin32Error());
+            return null;
+        }
+
+        try
+        {
+            var capture = CaptureInternal();
+            return capture.Formats.Count > 0 ? capture : null;
+        }
+        finally
+        {
+            User32.CloseClipboard();
+        }
     }
 
     private static RawClipboardCapture CaptureInternal()

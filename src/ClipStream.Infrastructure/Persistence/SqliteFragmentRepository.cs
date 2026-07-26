@@ -1,7 +1,7 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using ClipStream.Core.Models;
 using ClipStream.Core.Repositories;
+using ClipStream.Core.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace ClipStream.Infrastructure.Persistence;
@@ -9,8 +9,13 @@ namespace ClipStream.Infrastructure.Persistence;
 public sealed class SqliteFragmentRepository : IFragmentRepository
 {
     private readonly ClipStreamDatabase _database;
+    private readonly IBlobStore _blobStore;
 
-    public SqliteFragmentRepository(ClipStreamDatabase database) => _database = database;
+    public SqliteFragmentRepository(ClipStreamDatabase database, IBlobStore blobStore)
+    {
+        _database = database;
+        _blobStore = blobStore;
+    }
 
     public event EventHandler<FragmentAddedEventArgs>? FragmentAdded;
 
@@ -279,6 +284,19 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
     {
         await using var connection = _database.OpenConnection();
         await connection.OpenAsync(cancellationToken);
+
+        var storageKeys = new List<string>();
+        await using (var selectCmd = connection.CreateCommand())
+        {
+            selectCmd.CommandText = "SELECT storage_key FROM format_payloads WHERE fragment_id = $id";
+            selectCmd.Parameters.AddWithValue("$id", fragmentId.ToString());
+            await using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                storageKeys.Add(reader.GetString(0));
+            }
+        }
+
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         await using (var payloadsCmd = connection.CreateCommand())
@@ -306,5 +324,17 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
         }
 
         await transaction.CommitAsync(cancellationToken);
+
+        foreach (var storageKey in storageKeys.Distinct(StringComparer.Ordinal))
+        {
+            await using var refCmd = connection.CreateCommand();
+            refCmd.CommandText = "SELECT 1 FROM format_payloads WHERE storage_key = $key LIMIT 1";
+            refCmd.Parameters.AddWithValue("$key", storageKey);
+            var stillReferenced = await refCmd.ExecuteScalarAsync(cancellationToken) is not null;
+            if (!stillReferenced)
+            {
+                await _blobStore.DeleteAsync(storageKey, cancellationToken);
+            }
+        }
     }
 }

@@ -4,8 +4,11 @@ using ClipStream.App.Services;
 using ClipStream.App.ViewModels;
 using ClipStream.App.Windows;
 using ClipStream.Clipboard;
+using ClipStream.Clipboard.Paste;
+using ClipStream.Core.Repositories;
 using ClipStream.Export;
 using ClipStream.Infrastructure;
+using ClipStream.Infrastructure.Persistence;
 using ClipStream.Plugins.Abstractions;
 using ClipStream.Plugins.BuiltIn;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +49,7 @@ public partial class App : System.Windows.Application
             .ConfigureServices(services =>
             {
                 services.AddClipStreamInfrastructure();
+                services.AddSingleton<IPasteUiHook, WpfPasteUiHook>();
                 services.AddClipStreamClipboard();
                 services.AddClipStreamExport();
                 services.AddBuiltInPlugins();
@@ -78,6 +82,10 @@ public partial class App : System.Windows.Application
         hostWindow.Show();
 
         await listenerReady.Task;
+
+        await Services.GetRequiredService<ClipStreamDatabase>().InitializeAsync();
+        await Services.GetRequiredService<IStreamRepository>().EnsureDefaultStreamAsync();
+
         await _host.StartAsync();
 
         var mainWindow = Services.GetRequiredService<MainWindow>();

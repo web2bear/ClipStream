@@ -1,8 +1,8 @@
+using System.Threading.Channels;
 using ClipStream.Clipboard.Capture;
 using ClipStream.Clipboard.Listener;
 using ClipStream.Core.Repositories;
 using ClipStream.Core.Routing;
-using ClipStream.Infrastructure.Persistence;
 using ClipStream.Plugins.Abstractions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,10 +16,18 @@ public sealed class ClipboardCaptureHostedService : IHostedService
     private readonly IPluginPipeline _pipeline;
     private readonly IRoutingEngine _routingEngine;
     private readonly IFragmentRepository _fragmentRepository;
-    private readonly ClipStreamDatabase _database;
-    private readonly IStreamRepository _streamRepository;
     private readonly IPluginLoader _pluginLoader;
     private readonly ILogger<ClipboardCaptureHostedService> _logger;
+    private readonly Channel<uint> _pendingSequences = Channel.CreateBounded<uint>(
+        new BoundedChannelOptions(1)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false
+        });
+
+    private CancellationTokenSource? _workerCts;
+    private Task? _workerTask;
 
     public ClipboardCaptureHostedService(
         IClipboardListener listener,
@@ -27,8 +35,6 @@ public sealed class ClipboardCaptureHostedService : IHostedService
         IPluginPipeline pipeline,
         IRoutingEngine routingEngine,
         IFragmentRepository fragmentRepository,
-        ClipStreamDatabase database,
-        IStreamRepository streamRepository,
         IPluginLoader pluginLoader,
         ILogger<ClipboardCaptureHostedService> logger)
     {
@@ -37,35 +43,70 @@ public sealed class ClipboardCaptureHostedService : IHostedService
         _pipeline = pipeline;
         _routingEngine = routingEngine;
         _fragmentRepository = fragmentRepository;
-        _database = database;
-        _streamRepository = streamRepository;
         _pluginLoader = pluginLoader;
         _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        await _database.InitializeAsync(cancellationToken);
-        await _streamRepository.EnsureDefaultStreamAsync(cancellationToken);
+        _workerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _listener.ClipboardChanged += OnClipboardChanged;
+        _workerTask = ProcessQueueAsync(_workerCts.Token);
         _logger.LogInformation(
             "Clipboard capture service started. Plugins: {Count}, HWND: {Hwnd}",
             _pluginLoader.FormatPlugins.Count,
             _listener.ListenerHwnd);
+        return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         _listener.ClipboardChanged -= OnClipboardChanged;
-        return Task.CompletedTask;
+        _pendingSequences.Writer.TryComplete();
+
+        if (_workerCts is not null)
+        {
+            await _workerCts.CancelAsync();
+        }
+
+        if (_workerTask is not null)
+        {
+            try
+            {
+                await _workerTask.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown.
+            }
+        }
+
+        _workerCts?.Dispose();
+        _workerCts = null;
+        _workerTask = null;
     }
 
     private void OnClipboardChanged(object? sender, ClipboardChangedEventArgs e)
     {
-        _ = ProcessClipboardChangeAsync();
+        _pendingSequences.Writer.TryWrite(e.SequenceNumber);
     }
 
-    private async Task ProcessClipboardChangeAsync()
+    private async Task ProcessQueueAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var _ in _pendingSequences.Reader.ReadAllAsync(cancellationToken))
+            {
+                await ProcessClipboardChangeAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Expected during shutdown.
+        }
+    }
+
+    private async Task ProcessClipboardChangeAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -75,7 +116,7 @@ public sealed class ClipboardCaptureHostedService : IHostedService
                 return;
             }
 
-            var capture = await _captureService.CaptureAsync();
+            var capture = await _captureService.CaptureAsync(cancellationToken);
             if (capture is null || capture.Formats.Count == 0)
             {
                 _logger.LogWarning("Clipboard capture returned no formats");
@@ -90,20 +131,24 @@ public sealed class ClipboardCaptureHostedService : IHostedService
                 return;
             }
 
-            var fragment = await _pipeline.ProcessAsync(capture);
+            var fragment = await _pipeline.ProcessAsync(capture, cancellationToken);
             if (fragment is null)
             {
                 _logger.LogDebug("Clipboard change ignored (duplicate or unsupported)");
                 return;
             }
 
-            var streamId = await _routingEngine.RouteAsync(fragment);
-            await _fragmentRepository.SaveAsync(fragment, streamId);
+            var streamId = await _routingEngine.RouteAsync(fragment, cancellationToken);
+            await _fragmentRepository.SaveAsync(fragment, streamId, cancellationToken);
             _logger.LogInformation(
                 "Captured fragment {FragmentId} ({Kind}) -> stream {StreamId}",
                 fragment.Id,
                 fragment.Kind,
                 streamId);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
