@@ -3,6 +3,8 @@
 
 Windows clipboard manager with stream-based history, plugin pipeline, and Markdown export.
 
+![ClipStream main window](docs/images/app-screenshot.png)
+
 ## Features
 
 ### Clipboard monitoring
