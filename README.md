@@ -49,6 +49,17 @@ dotnet test ClipStream.sln
 dotnet run --project src/ClipStream.App
 ```
 
+## Release
+
+Push a version tag to publish a self-contained Windows build to GitHub Releases:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The [Release](.github/workflows/release.yml) workflow runs tests, publishes `win-x64` (self-contained single-file), zips the output, and attaches it to a new GitHub Release.
+
 ## Architecture
 
 | Project | Role |
