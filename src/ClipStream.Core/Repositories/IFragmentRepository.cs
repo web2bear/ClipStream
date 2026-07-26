@@ -30,6 +30,8 @@ public interface IFragmentRepository
     Task<bool> ExistsByContentHashAsync(string contentHash, CancellationToken cancellationToken = default);
 
     Task UpdateTitleAsync(Guid fragmentId, string title, CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Guid fragmentId, CancellationToken cancellationToken = default);
 }
 
 public sealed class FragmentAddedEventArgs : EventArgs

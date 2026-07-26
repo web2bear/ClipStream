@@ -30,6 +30,7 @@ public sealed class PluginLoader : IPluginLoader
     private readonly List<IFragmentEnricherPlugin> _enricherPlugins = [];
     private readonly List<IFragmentActionPlugin> _fragmentActionPlugins = [];
     private readonly List<IStreamActionPlugin> _streamActionPlugins = [];
+    private readonly List<IFragmentPreviewPlugin> _previewPlugins = [];
     private readonly List<PluginLoadContext> _contexts = [];
 
     public PluginLoader(ILogger<PluginLoader> logger)
@@ -49,12 +50,15 @@ public sealed class PluginLoader : IPluginLoader
 
     public IReadOnlyList<IStreamActionPlugin> StreamActionPlugins => _streamActionPlugins;
 
+    public IReadOnlyList<IFragmentPreviewPlugin> PreviewPlugins => _previewPlugins;
+
     public Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         _formatPlugins.Clear();
         _enricherPlugins.Clear();
         _fragmentActionPlugins.Clear();
         _streamActionPlugins.Clear();
+        _previewPlugins.Clear();
         _contexts.Clear();
 
         if (Directory.Exists(_pluginsDirectory))
@@ -151,6 +155,9 @@ public sealed class PluginLoader : IPluginLoader
                 case IStreamActionPlugin streamActionPlugin:
                     _streamActionPlugins.Add(streamActionPlugin);
                     break;
+                case IFragmentPreviewPlugin previewPlugin:
+                    _previewPlugins.Add(previewPlugin);
+                    break;
             }
         }
     }
@@ -190,6 +197,10 @@ public sealed class PluginLoader : IPluginLoader
                 case IStreamActionPlugin streamActionPlugin:
                     _streamActionPlugins.Add(streamActionPlugin);
                     _logger.LogInformation("Loaded stream action plugin {Id}", streamActionPlugin.Descriptor.Id);
+                    break;
+                case IFragmentPreviewPlugin previewPlugin:
+                    _previewPlugins.Add(previewPlugin);
+                    _logger.LogInformation("Loaded preview plugin {Id}", previewPlugin.Descriptor.Id);
                     break;
             }
         }

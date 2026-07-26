@@ -27,6 +27,7 @@ Action plugins (`IFragmentActionPlugin`, `IStreamActionPlugin`) also receive `Ac
 IClipStreamPlugin
 ├── IClipboardFormatPlugin      — turn raw clipboard capture into a fragment
 ├── IFragmentEnricherPlugin     — mutate/enrich a fragment after format plugins
+├── IFragmentPreviewPlugin      — build UI preview data for a selected fragment
 └── IClipStreamLifecyclePlugin
     ├── IFragmentActionPlugin   — context-menu action on a fragment
     └── IStreamActionPlugin     — context-menu action on a stream
@@ -39,10 +40,10 @@ public sealed record PluginDescriptor(
     string Id,       // unique id, e.g. "com.example.json"
     string Name,     // display name
     string Version,  // e.g. "1.0.0"
-    int Priority);   // lower runs first (format/enricher ordering)
+    int Priority);   // lower runs first (format/enricher/preview ordering)
 ```
 
-Every plugin exposes `Descriptor`. Built-in priorities: text `10`, HTML `20`, image `30`, files `40`, generic binary `1000`.
+Every plugin exposes `Descriptor`. Built-in format priorities: text `10`, HTML `20`, image `30`, files `40`, generic binary `1000`. Built-in preview priorities: text `10`, image `20`.
 
 ---
 
@@ -230,6 +231,90 @@ public sealed class LongTextTagEnricher : IFragmentEnricherPlugin
         };
 
         return Task.FromResult(fragment with { Metadata = metadata });
+    }
+}
+```
+
+---
+
+## Preview plugin — `IFragmentPreviewPlugin`
+
+Called when the user selects a fragment in the UI. The host picks the **first** plugin (by `Priority`) whose `CanPreview` returns `true`, then calls `BuildPreviewAsync`. Preview plugins do **not** receive lifecycle `ActivateAsync` / `DeactivateAsync`.
+
+```csharp
+public interface IFragmentPreviewPlugin : IClipStreamPlugin
+{
+    bool CanPreview(ClipboardFragment fragment);
+
+    Task<FragmentPreviewResult?> BuildPreviewAsync(
+        ClipboardFragment fragment,
+        FragmentPreviewContext context,
+        CancellationToken cancellationToken);
+}
+```
+
+`FragmentPreviewContext` provides `IBlobStore` to load payload bytes.
+
+### Results
+
+| Type | Meaning |
+|------|---------|
+| `TextFragmentPreview(text, canOpenInEditor)` | Show text in the preview pane |
+| `ImageFragmentPreview(data, formatName)` | Host decodes bytes (`CF_DIB`, `PNG`, …) to an image |
+| `null` | Decline after `CanPreview`; host tries the next matching preview plugin |
+
+If no plugin produces a result, the host falls back to `fragment.PreviewText` (e.g. file lists).
+
+Results are **data models** (no WPF types). The host maps them to UI controls.
+
+### Example: JSON pretty-print preview
+
+```csharp
+using System.Text;
+using System.Text.Json;
+using ClipStream.Core.Models;
+using ClipStream.Plugins.Abstractions;
+
+namespace SamplePlugins;
+
+public sealed class JsonPreviewPlugin : IFragmentPreviewPlugin
+{
+    public PluginDescriptor Descriptor { get; } =
+        new("sample.preview.json", "JSON preview", "1.0.0", priority: 5);
+
+    public bool CanPreview(ClipboardFragment fragment) =>
+        fragment.Metadata.TryGetValue("contentType", out var type)
+        && type == "application/json";
+
+    public async Task<FragmentPreviewResult?> BuildPreviewAsync(
+        ClipboardFragment fragment,
+        FragmentPreviewContext context,
+        CancellationToken cancellationToken)
+    {
+        var payload = fragment.Payloads.FirstOrDefault(p =>
+            p.FormatName is "UnicodeText" or "CF_UNICODETEXT" or "text/plain");
+        if (payload is null)
+        {
+            return null;
+        }
+
+        var data = await context.BlobStore.GetAsync(payload.StorageKey, cancellationToken);
+        if (data is null || data.Length == 0)
+        {
+            return null;
+        }
+
+        var raw = Encoding.Unicode.GetString(data).TrimEnd('\0');
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var pretty = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+            return new TextFragmentPreview(pretty, CanOpenInEditor: true);
+        }
+        catch (JsonException)
+        {
+            return new TextFragmentPreview(raw, CanOpenInEditor: true);
+        }
     }
 }
 ```

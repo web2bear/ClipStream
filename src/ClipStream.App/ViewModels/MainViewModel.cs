@@ -97,6 +97,7 @@ public partial class MainViewModel : ObservableObject
         _themeService.ThemeChanged += (_, _) => IsDarkTheme = _themeService.IsDarkTheme;
         _fragmentRepository.FragmentAdded += OnFragmentAdded;
         _editStreamMenuItem = new EditStreamContextMenuItemViewModel(this);
+        _deleteFragmentMenuItem = new DeleteFragmentContextMenuItemViewModel(this);
         BuildActionMenuItems();
     }
 
@@ -252,6 +253,40 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"Moved fragment to {targetName}";
     }
 
+    private bool CanDeleteFragment(ClipboardFragment? fragment) => (fragment ?? SelectedFragment) is not null;
+
+    [RelayCommand(CanExecute = nameof(CanDeleteFragment))]
+    private async Task DeleteFragmentAsync(ClipboardFragment? fragment)
+    {
+        fragment ??= SelectedFragment;
+        if (fragment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _fragmentRepository.DeleteAsync(fragment.Id);
+
+            var inList = Fragments.FirstOrDefault(item => item.Id == fragment.Id);
+            if (inList is not null)
+            {
+                Fragments.Remove(inList);
+            }
+
+            if (SelectedFragment?.Id == fragment.Id)
+            {
+                SelectedFragment = null;
+            }
+
+            StatusText = "Фрагмент удалён";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Не удалось удалить фрагмент: {ex.Message}";
+        }
+    }
+
     partial void OnSelectedFragmentChanged(ClipboardFragment? value)
     {
         _ = UpdateFragmentActionMenuItemsAsync(value);
@@ -304,6 +339,42 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsTextEditorAvailableChanged(bool value) =>
         OpenInTextEditorCommand.NotifyCanExecuteChanged();
 
+    [RelayCommand(CanExecute = nameof(CanOpenInImageViewer))]
+    private async Task OpenInImageViewerAsync()
+    {
+        if (SelectedFragment is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var path = await _previewService.ExportImageToTempFileAsync(SelectedFragment);
+            if (path is null)
+            {
+                StatusText = "Failed to export image preview";
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+
+            StatusText = $"Opened image: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to open image: {ex.Message}";
+        }
+    }
+
+    private bool CanOpenInImageViewer() => HasPreviewImage;
+
+    partial void OnHasPreviewImageChanged(bool value) =>
+        OpenInImageViewerCommand.NotifyCanExecuteChanged();
+
     private async Task LoadFragmentPreviewAsync(ClipboardFragment? fragment)
     {
         _previewLoadCts?.Cancel();
@@ -333,28 +404,29 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            if (fragment.Kind is FragmentKind.Text or FragmentKind.RichText)
-            {
-                var text = await _previewService.TryLoadTextAsync(fragment, token);
-                if (!token.IsCancellationRequested)
-                {
-                    PreviewText = text ?? fragment.PreviewText ?? string.Empty;
-                    IsTextEditorAvailable = !string.IsNullOrWhiteSpace(PreviewText);
-                }
-            }
-            else if (fragment.Kind == FragmentKind.Files)
-            {
-                PreviewText = fragment.PreviewText ?? string.Empty;
-            }
-
-            var image = await _previewService.TryLoadImageAsync(fragment, token);
+            var state = await _previewService.LoadAsync(fragment, token);
             if (token.IsCancellationRequested)
             {
                 return;
             }
 
-            PreviewImage = image;
-            HasPreviewImage = image is not null;
+            void Apply()
+            {
+                PreviewText = state.PreviewText;
+                PreviewImage = state.PreviewImage;
+                HasPreviewImage = state.PreviewImage is not null;
+                IsTextEditorAvailable = state.CanOpenInEditor;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is not null && !dispatcher.CheckAccess())
+            {
+                await dispatcher.InvokeAsync(Apply);
+            }
+            else
+            {
+                Apply();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -387,6 +459,7 @@ public partial class MainViewModel : ObservableObject
     private readonly List<FragmentActionMenuItemViewModel> _fragmentActionMenuItems = [];
     private readonly List<StreamActionMenuItemViewModel> _streamActionMenuItems = [];
     private readonly EditStreamContextMenuItemViewModel _editStreamMenuItem;
+    private readonly DeleteFragmentContextMenuItemViewModel _deleteFragmentMenuItem;
 
     private void BuildActionMenuItems()
     {
@@ -397,7 +470,11 @@ public partial class MainViewModel : ObservableObject
                 .ThenBy(plugin => plugin.MenuOrder)
                 .Select(plugin => new FragmentActionMenuItemViewModel(plugin, CreateFragmentContext, _statusReporter)));
 
-        FragmentContextMenuItems = new ObservableCollection<IContextMenuItemViewModel>(_fragmentActionMenuItems);
+        FragmentContextMenuItems = new ObservableCollection<IContextMenuItemViewModel>(
+        [
+            .._fragmentActionMenuItems,
+            _deleteFragmentMenuItem
+        ]);
 
         _streamActionMenuItems.Clear();
         _streamActionMenuItems.AddRange(
@@ -431,6 +508,8 @@ public partial class MainViewModel : ObservableObject
 
     private async Task UpdateFragmentActionMenuItemsAsync(ClipboardFragment? fragment)
     {
+        DeleteFragmentCommand.NotifyCanExecuteChanged();
+        _deleteFragmentMenuItem.Refresh();
         foreach (var menuItem in _fragmentActionMenuItems)
         {
             await menuItem.UpdateCanExecuteAsync(fragment);

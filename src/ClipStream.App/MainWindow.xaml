@@ -199,16 +199,11 @@
                                                            Width="22"
                                                            VerticalAlignment="Center"
                                                            Foreground="{DynamicResource AccentBrush}" />
-                                                <Grid MinWidth="120" MaxWidth="280" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Title}"
-                                                               Style="{StaticResource TitleDisplayTextBlockStyle}"
-                                                               MouseLeftButtonDown="TitleDisplay_OnMouseLeftButtonDown" />
-                                                    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                                                             Style="{StaticResource InlineEditTextBoxStyle}"
-                                                             Visibility="Collapsed"
-                                                             KeyDown="TitleTextBox_KeyDown"
-                                                             LostFocus="TitleTextBox_LostFocus" />
-                                                </Grid>
+                                                <TextBlock Text="{Binding Title}"
+                                                           Style="{StaticResource TitleDisplayTextBlockStyle}"
+                                                           MaxWidth="280"
+                                                           Margin="0,0,8,0"
+                                                           VerticalAlignment="Center" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
@@ -322,175 +317,210 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Preview -->
-                                <Border Grid.Column="0"
-                                        Background="{DynamicResource ContentBackgroundBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="4"
-                                        Padding="8">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="*" />
-                                        </Grid.RowDefinitions>
+                                <Grid Grid.Column="0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
 
-                                        <StackPanel Grid.Row="0"
-                                                    Orientation="Horizontal"
-                                                    HorizontalAlignment="Right"
-                                                    Margin="0,0,0,6">
-                                            <Button Command="{Binding OpenInTextEditorCommand}"
-                                                    ToolTip="Открыть в текстовом редакторе"
-                                                    Padding="6"
-                                                    MinWidth="28"
-                                                    MinHeight="28">
-                                                <Button.Style>
-                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    <Grid Grid.Row="0"
+                                          DataContext="{Binding SelectedFragment}"
+                                          Margin="0,0,0,8"
+                                          MinHeight="28">
+                                        <TextBlock Text="{Binding Title}"
+                                                   Style="{StaticResource PreviewTitleDisplayTextBlockStyle}"
+                                                   ToolTip="Двойной щелчок — изменить имя"
+                                                   MouseLeftButtonDown="TitleDisplay_OnMouseLeftButtonDown" />
+                                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource PreviewTitleEditTextBoxStyle}"
+                                                 Visibility="Collapsed"
+                                                 KeyDown="TitleTextBox_KeyDown"
+                                                 LostFocus="TitleTextBox_LostFocus" />
+                                    </Grid>
+
+                                    <Border Grid.Row="1"
+                                            Background="{DynamicResource ContentBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="8">
+                                        <Grid>
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ScrollViewer.Style>
+                                                    <Style TargetType="ScrollViewer">
+                                                        <Setter Property="Visibility" Value="Visible" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsTextEditorAvailable}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            <DataTrigger Binding="{Binding HasPreviewImage}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </Button.Style>
-                                                <TextBlock Text="&#xE8A5;"
-                                                           FontFamily="Segoe MDL2 Assets"
-                                                           FontSize="14"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                                            </Button>
-                                        </StackPanel>
+                                                </ScrollViewer.Style>
+                                                <TextBox Text="{Binding PreviewText, Mode=OneWay}"
+                                                         Style="{StaticResource PreviewTextBoxStyle}" />
+                                            </ScrollViewer>
 
-                                        <ScrollViewer Grid.Row="1"
-                                                      VerticalScrollBarVisibility="Auto"
-                                                      HorizontalScrollBarVisibility="Disabled">
-                                            <ScrollViewer.Style>
-                                                <Style TargetType="ScrollViewer">
-                                                    <Setter Property="Visibility" Value="Visible" />
+                                            <Border Background="Transparent"
+                                                    BorderThickness="1"
+                                                    BorderBrush="Transparent"
+                                                    Focusable="True"
+                                                    FocusVisualStyle="{x:Null}"
+                                                    MouseLeftButtonDown="PreviewImage_OnMouseLeftButtonDown"
+                                                    KeyDown="PreviewImage_OnKeyDown"
+                                                    ToolTip="Ctrl+C — копировать изображение">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasPreviewImage}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Image Source="{Binding PreviewImage}"
+                                                       Stretch="Uniform"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                            </Border>
+
+                                            <TextBlock Text="Нет превью"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextMutedBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding HasPreviewImage}" Value="False" />
+                                                                    <Condition Binding="{Binding PreviewText}" Value="" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Commands + Details -->
+                                <Grid Grid.Column="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0"
+                                                Orientation="Horizontal"
+                                                Margin="0,0,0,10">
+                                        <Button Command="{Binding OpenInTextEditorCommand}"
+                                                ToolTip="Открыть в текстовом редакторе"
+                                                Padding="6"
+                                                MinWidth="28"
+                                                MinHeight="28"
+                                                Margin="0,0,4,0">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding HasPreviewImage}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        <DataTrigger Binding="{Binding IsTextEditorAvailable}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </ScrollViewer.Style>
-                                            <TextBox Text="{Binding PreviewText, Mode=OneWay}"
-                                                     Style="{StaticResource PreviewTextBoxStyle}" />
-                                        </ScrollViewer>
+                                            </Button.Style>
+                                            <TextBlock Text="&#xE8A5;"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </Button>
 
-                                        <Border Grid.Row="1"
-                                                Background="Transparent"
-                                                BorderThickness="1"
-                                                BorderBrush="Transparent"
-                                                Focusable="True"
-                                                FocusVisualStyle="{x:Null}"
-                                                MouseLeftButtonDown="PreviewImage_OnMouseLeftButtonDown"
-                                                KeyDown="PreviewImage_OnKeyDown"
-                                                ToolTip="Ctrl+C — копировать изображение">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
+                                        <Button Command="{Binding OpenInImageViewerCommand}"
+                                                ToolTip="Открыть изображение"
+                                                Padding="6"
+                                                MinWidth="28"
+                                                MinHeight="28">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding HasPreviewImage}" Value="True">
                                                             <Setter Property="Visibility" Value="Visible" />
                                                         </DataTrigger>
-                                                        <Trigger Property="IsKeyboardFocused" Value="True">
-                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                        </Trigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Border.Style>
-                                            <Image Source="{Binding PreviewImage}"
-                                                   Stretch="Uniform"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                        </Border>
-
-                                        <TextBlock Grid.Row="1"
-                                                   Text="Нет превью"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <MultiDataTrigger>
-                                                            <MultiDataTrigger.Conditions>
-                                                                <Condition Binding="{Binding HasPreviewImage}" Value="False" />
-                                                                <Condition Binding="{Binding PreviewText}" Value="" />
-                                                            </MultiDataTrigger.Conditions>
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </MultiDataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Details -->
-                                <ScrollViewer Grid.Column="2"
-                                              VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Disabled">
-                                    <StackPanel>
-                                        <TextBlock Text="Сведения"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   Margin="0,0,0,10" />
-
-                                        <TextBlock Text="Имя"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding SelectedFragment.Title}"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,2,0,10"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-
-                                        <TextBlock Text="Тип"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding SelectedFragmentKindText}"
-                                                   Margin="0,2,0,10"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-
-                                        <TextBlock Text="Дата"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding SelectedFragment.CapturedAt, StringFormat={}{0:dd.MM.yyyy HH:mm:ss}}"
-                                                   Margin="0,2,0,10"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-
-                                        <TextBlock Text="Размер"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding SelectedFragmentSizeText}"
-                                                   Margin="0,2,0,10"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-
-                                        <TextBlock Text="Источник"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Margin="0,2,0,10"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}">
-                                            <TextBlock.Text>
-                                                <MultiBinding StringFormat="{}{0} (PID {1})">
-                                                    <Binding Path="SelectedFragment.SourceProcessName" TargetNullValue="—" />
-                                                    <Binding Path="SelectedFragment.SourceProcessId" TargetNullValue="—" />
-                                                </MultiBinding>
-                                            </TextBlock.Text>
-                                        </TextBlock>
-
-                                        <TextBlock Text="Форматы"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="{Binding SelectedFragmentFormatsText}"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,2,0,0"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </Button.Style>
+                                            <TextBlock Text="&#xE91B;"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="14"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </Button>
                                     </StackPanel>
-                                </ScrollViewer>
+
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <TextBlock Text="Сведения"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       Margin="0,0,0,10" />
+
+                                            <TextBlock Text="Тип"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Text="{Binding SelectedFragmentKindText}"
+                                                       Margin="0,2,0,10"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                            <TextBlock Text="Дата"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Text="{Binding SelectedFragment.CapturedAt, StringFormat={}{0:dd.MM.yyyy HH:mm:ss}}"
+                                                       Margin="0,2,0,10"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                            <TextBlock Text="Размер"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Text="{Binding SelectedFragmentSizeText}"
+                                                       Margin="0,2,0,10"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                            <TextBlock Text="Источник"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Margin="0,2,0,10"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}">
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} (PID {1})">
+                                                        <Binding Path="SelectedFragment.SourceProcessName" TargetNullValue="—" />
+                                                        <Binding Path="SelectedFragment.SourceProcessId" TargetNullValue="—" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+
+                                            <TextBlock Text="Форматы"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Text="{Binding SelectedFragmentFormatsText}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,2,0,0"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </Border>

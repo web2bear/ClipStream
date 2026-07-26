@@ -12,6 +12,8 @@ public interface IPluginLoader
 
     IReadOnlyList<IStreamActionPlugin> StreamActionPlugins { get; }
 
+    IReadOnlyList<IFragmentPreviewPlugin> PreviewPlugins { get; }
+
     Task ReloadAsync(CancellationToken cancellationToken = default);
 
     Task ActivateActionPluginsAsync(IPluginHost host, CancellationToken cancellationToken = default);

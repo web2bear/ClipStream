@@ -121,6 +121,7 @@ public partial class MainWindow : Window
         editor.Visibility = Visibility.Collapsed;
         if (display is not null)
         {
+            display.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
             display.Visibility = Visibility.Visible;
         }
 

@@ -8,14 +8,17 @@ public sealed class ImageFormatPlugin : BuiltInPluginBase, IClipboardFormatPlugi
     public override PluginDescriptor Descriptor { get; } = new("builtin.image", "Image", "1.0.0", 30);
 
     public bool CanHandle(RawClipboardCapture capture) =>
-        capture.Formats.Any(f => f.FormatName is "CF_DIB" or "PNG" or "Bitmap" or "image/png");
+        capture.Formats.Any(f =>
+            f.FormatName is "PNG" or "image/png" or "CF_DIB" or "CF_DIBV5" or "Bitmap");
 
     public async Task<PluginProcessResult> ProcessAsync(
         RawClipboardCapture capture,
         PluginContext context,
         CancellationToken cancellationToken)
     {
-        var imageFormat = capture.Formats.FirstOrDefault(f => f.FormatName is "CF_DIB" or "PNG" or "Bitmap" or "image/png");
+        // Prefer PNG over DIB so preview/paste can use a reliable encoded payload.
+        var imageFormat = capture.Formats.FirstOrDefault(f => f.FormatName is "PNG" or "image/png")
+            ?? capture.Formats.FirstOrDefault(f => f.FormatName is "CF_DIB" or "CF_DIBV5" or "Bitmap");
         if (imageFormat is null)
         {
             return new Skipped("No image format");

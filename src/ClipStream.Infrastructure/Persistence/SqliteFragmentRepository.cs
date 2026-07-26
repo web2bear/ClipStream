@@ -274,4 +274,37 @@ public sealed class SqliteFragmentRepository : IFragmentRepository
         command.Parameters.AddWithValue("$id", fragmentId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(Guid fragmentId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _database.OpenConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await using (var payloadsCmd = connection.CreateCommand())
+        {
+            payloadsCmd.Transaction = (SqliteTransaction)transaction;
+            payloadsCmd.CommandText = "DELETE FROM format_payloads WHERE fragment_id = $id";
+            payloadsCmd.Parameters.AddWithValue("$id", fragmentId.ToString());
+            await payloadsCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var streamsCmd = connection.CreateCommand())
+        {
+            streamsCmd.Transaction = (SqliteTransaction)transaction;
+            streamsCmd.CommandText = "DELETE FROM fragment_streams WHERE fragment_id = $id";
+            streamsCmd.Parameters.AddWithValue("$id", fragmentId.ToString());
+            await streamsCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var fragmentCmd = connection.CreateCommand())
+        {
+            fragmentCmd.Transaction = (SqliteTransaction)transaction;
+            fragmentCmd.CommandText = "DELETE FROM fragments WHERE id = $id";
+            fragmentCmd.Parameters.AddWithValue("$id", fragmentId.ToString());
+            await fragmentCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
 }
