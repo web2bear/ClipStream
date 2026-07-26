@@ -3,6 +3,7 @@ using ClipStream.Clipboard;
 using ClipStream.Core.Repositories;
 using ClipStream.Core.Routing;
 using ClipStream.Core.Storage;
+using ClipStream.Export;
 using ClipStream.Infrastructure;
 using ClipStream.Infrastructure.Persistence;
 using ClipStream.Infrastructure.Plugins;
@@ -34,6 +35,7 @@ internal static class TestServiceFactory
         services.AddSingleton<IPluginLoader>(sp => sp.GetRequiredService<PluginLoader>());
         services.AddSingleton<IPluginPipeline, PluginPipeline>();
         services.AddClipStreamClipboard();
+        services.AddClipStreamExport();
         services.AddBuiltInPlugins();
 
         var provider = services.BuildServiceProvider();

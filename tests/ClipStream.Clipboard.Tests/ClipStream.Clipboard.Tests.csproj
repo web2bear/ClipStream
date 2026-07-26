@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ClipStream.Clipboard\ClipStream.Clipboard.csproj" />
+    <ProjectReference Include="..\..\src\ClipStream.Export\ClipStream.Export.csproj" />
     <ProjectReference Include="..\..\src\ClipStream.Infrastructure\ClipStream.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\ClipStream.Plugins.BuiltIn\ClipStream.Plugins.BuiltIn.csproj" />
   </ItemGroup>
